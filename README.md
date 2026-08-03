@@ -7,9 +7,13 @@ visualizador interactivo de la corrida.
 **Visor en línea:** https://aleramirezpo.github.io/simulador3d-carbon-magnetita/
 
 Se abre en cualquier PC con un navegador moderno: no hace falta Python, ni
-instalar nada, ni tener los resultados en disco. La primera carga baja unos
-60 MB —la serie completa de campos en Float32— y a partir de ahí la
-reproducción es local, sin más peticiones.
+instalar nada, ni tener los resultados en disco. La primera carga baja la serie
+completa de campos en Float32 y a partir de ahí la reproducción es local, a
+30 fps interpolados y sin una sola petición más.
+
+Lo que viaja son unos 190 KB por fotograma: el Float32 crudo ocupa 1,1 MB pero
+GitHub Pages lo sirve con gzip y comprime 5,7 veces. `sitio/manifiesto.json`
+declara el peso en disco y el peso real de la descarga.
 
 Trabajo experimental base: A. Ramírez Polo, S. Puerta Araque, G. Neira Arenas
 (Universidad Nacional de Colombia, sede Medellín — Laboratorio de Carbones).

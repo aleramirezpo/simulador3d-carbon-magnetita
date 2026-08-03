@@ -30,6 +30,7 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import shutil
 import sys
@@ -131,11 +132,16 @@ def exportar(
     )
 
     bytes_totales = 0
+    bytes_comprimidos = 0
     for indice in range(estado.n_fotogramas):
         campos = estado.cargar(indice)
         binario = _codificar_s3df(
             _estructura_para_web(campos, estado.Fe2O3_inicial_mol_m3))
         (directorio_datos / f"fotograma_{indice:04d}.bin").write_bytes(binario)
+        # Lo que de verdad descarga el lector no es el Float32 crudo: Pages lo
+        # sirve con gzip. Se mide aquí para que la cifra del README salga de la
+        # exportación y no de una estimación escrita a mano.
+        bytes_comprimidos += len(gzip.compress(binario, 6))
         lineas = generar_lineas_corriente(campos)
         (directorio_datos / f"lineas_{indice:04d}.json").write_text(
             json.dumps(
@@ -174,13 +180,18 @@ def exportar(
         "MB_sitio": round(
             sum(p.stat().st_size for p in salida.rglob("*") if p.is_file()) / 1.0e6, 1,
         ),
+        # Lo que descarga el lector, que es lo único que le afecta.
+        "MB_descarga_gzip": round(bytes_comprimidos / 1.0e6, 1),
+        "KB_por_fotograma_gzip": round(
+            bytes_comprimidos / max(1, estado.n_fotogramas) / 1.0e3, 1),
     }
     (salida / "manifiesto.json").write_text(
         json.dumps(manifiesto, ensure_ascii=False, indent=2), encoding="utf-8",
     )
     registrar(
-        f"Sitio en {salida} · {manifiesto['MB_sitio']} MB "
-        f"({manifiesto['MB_fotogramas']} MB de fotogramas)"
+        f"Sitio en {salida} · {manifiesto['MB_sitio']} MB en disco · "
+        f"{manifiesto['MB_descarga_gzip']} MB de descarga real "
+        f"({manifiesto['KB_por_fotograma_gzip']} KB por fotograma con gzip)"
     )
     return manifiesto
 

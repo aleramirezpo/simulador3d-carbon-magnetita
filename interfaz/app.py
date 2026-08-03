@@ -265,6 +265,35 @@ def _serie_tolerante(directorio: Path) -> list[dict[str, Any]]:
     return indice
 
 
+def _recortar_a_la_corrida_vigente(
+    elementos: list[Any], tiempo_de: Any, escritura_de: Any,
+) -> list[Any]:
+    """Descarta los NPZ que sobraron de una corrida anterior.
+
+    Una corrida nueva sobre el mismo directorio reescribe primero el t=0, pero
+    no borra las instantáneas tardías de la anterior: quedan mezcladas dos
+    predicciones distintas en la misma línea temporal. Se conservan sólo las
+    escritas a partir del t=0 más reciente.
+
+    Vive aparte porque hay DOS sitios que necesitan este recorte —el que abre
+    la serie y el que elige qué corrida abrir— y mientras cada uno tuvo su
+    propio criterio no coincidieron: el selector puntuaba las carpetas por los
+    nombres de archivo, incluidos los de la corrida muerta, y prefería una
+    carpeta rancia sobre una corrida nueva y completa. La interfaz abría
+    entonces una serie mucho más corta de la que creía haber elegido.
+    """
+    inicios = [
+        elemento for elemento in elementos
+        if abs(float(tiempo_de(elemento))) <= 1.0e-12
+    ]
+    if not inicios:
+        return list(elementos)
+    corte = max(escritura_de(elemento) for elemento in inicios)
+    return [
+        elemento for elemento in elementos if escritura_de(elemento) >= corte
+    ]
+
+
 class EstadoAplicacion:
     """Serie real del solucionador o almacén temporal sintético de respaldo."""
 
@@ -276,16 +305,11 @@ class EstadoAplicacion:
     ):
         solicitado = None if datos is None else Path(datos).resolve()
         indice_real = _serie_tolerante(solicitado) if solicitado is not None and solicitado.is_dir() else []
-        # Una corrida nueva sobrescribe primero t=0. Si quedaron NPZ de una
-        # corrida anterior, sólo se muestran los escritos a partir del t=0 más
-        # reciente para no mezclar dos predicciones en la misma línea temporal.
-        inicios = [item for item in indice_real if abs(float(item["t"])) <= 1.0e-12]
-        if inicios:
-            corte = max(Path(item["ruta"]).stat().st_mtime_ns for item in inicios)
-            indice_real = [
-                item for item in indice_real
-                if Path(item["ruta"]).stat().st_mtime_ns >= corte
-            ]
+        indice_real = _recortar_a_la_corrida_vigente(
+            indice_real,
+            lambda item: item["t"],
+            lambda item: Path(item["ruta"]).stat().st_mtime_ns,
+        )
         self._indice_real = indice_real
         self.datos_sinteticos = not bool(indice_real)
         self.origen_datos = "sinteticos" if self.datos_sinteticos else "resultados_del_solucionador"
@@ -557,6 +581,12 @@ def directorio_predeterminado(base: str | Path = "resultados") -> Path:
     tiempo está en el nombre del archivo, así que no hace falta leer decenas de
     megabytes para decidir. Si no hay ninguna se devuelve la ruta clásica y el
     programa cae en datos sintéticos, como siempre.
+
+    Se puntúa por la corrida VIGENTE de cada carpeta, con el mismo recorte que
+    aplica `EstadoAplicacion` al abrirla. Contar los archivos tal cual hacía
+    ganar a las carpetas donde se relanzó la simulación, que acumulan las
+    instantáneas de la corrida muerta y aparentan llegar más lejos de lo que la
+    interfaz va a mostrar.
     """
     raiz = Path(base)
     clasico = raiz / "simulacion"
@@ -564,13 +594,17 @@ def directorio_predeterminado(base: str | Path = "resultados") -> Path:
         return clasico
     mejor: tuple[float, int, Path] | None = None
     for carpeta in sorted(p for p in raiz.iterdir() if p.is_dir()):
-        tiempos = [
-            t for t in (_tiempo_de_nombre(ruta.name) for ruta in carpeta.glob("instantanea_*us.npz"))
-            if t is not None
-        ]
-        if len(tiempos) < 2:
+        archivos = []
+        for ruta in carpeta.glob("instantanea_*us.npz"):
+            t = _tiempo_de_nombre(ruta.name)
+            if t is not None:
+                archivos.append((t, ruta.stat().st_mtime_ns))
+        vigentes = _recortar_a_la_corrida_vigente(
+            archivos, lambda par: par[0], lambda par: par[1],
+        )
+        if len(vigentes) < 2:
             continue
-        candidato = (max(tiempos), len(tiempos), carpeta)
+        candidato = (max(t for t, _ in vigentes), len(vigentes), carpeta)
         if mejor is None or candidato[:2] > mejor[:2]:
             mejor = candidato
     return clasico if mejor is None else mejor[2]

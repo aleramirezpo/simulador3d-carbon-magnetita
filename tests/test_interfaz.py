@@ -552,6 +552,56 @@ def test_el_directorio_predeterminado_es_la_corrida_mas_avanzada(tmp_path):
     assert directorio_predeterminado(tmp_path / "no_existe") == tmp_path / "no_existe" / "simulacion"
 
 
+def test_el_directorio_predeterminado_ignora_los_npz_de_corridas_anteriores(tmp_path):
+    """Elegir por el NOMBRE de los archivos contradice lo que luego se muestra.
+
+    Un directorio donde se relanzó la simulación conserva los NPZ de la corrida
+    vieja: los nombres siguen llegando a 720 s aunque la corrida vigente se
+    detuviera a los 100. `EstadoAplicacion` ya descarta lo anterior al t=0 más
+    reciente —bien: no mezcla dos físicas en una línea temporal— pero el
+    selector no aplicaba ese mismo recorte, así que puntuaba esa carpeta con los
+    720 s de la corrida MUERTA y con sus 100 archivos. Prefería la carpeta rancia
+    frente a una corrida nueva y coherente, y la interfaz acababa abriendo 100 s
+    creyendo haber elegido 720.
+
+    Es el patrón de siempre en este proyecto: dos criterios que no coinciden, y
+    el desacuerdo sólo se ve donde nadie mira.
+    """
+    from interfaz.app import EstadoAplicacion, directorio_predeterminado
+
+    def escribir(carpeta: Path, tiempos_s, instante_ns: int) -> None:
+        carpeta.mkdir(parents=True, exist_ok=True)
+        for t in tiempos_s:
+            campos = generar_instantanea_sintetica(0, n_fotogramas=2, forma=(6, 6, 8))
+            campos["t"] = float(t)
+            campos["metadatos"] = {"fuente": "prueba", "datos_sinteticos": False}
+            ruta = carpeta / f"instantanea_{int(round(t * 1.0e6)):015d}us.npz"
+            guardar_instantanea(campos, ruta)
+            os.utime(ruta, ns=(instante_ns, instante_ns))
+
+    viejo, nuevo = 1_000_000_000_000_000_000, 2_000_000_000_000_000_000
+    mezclada = tmp_path / "mezclada"
+    # Corrida vieja: llega a 720 s y deja veinte archivos.
+    escribir(mezclada, [t * 40.0 for t in range(1, 19)] + [720.0], viejo)
+    # Relanzada: reescribe t=0 y se detiene en 100 s. Es lo único que se verá.
+    escribir(mezclada, [0.0, 50.0, 100.0], nuevo)
+    # Corrida limpia y completa, con menos archivos que la mezclada.
+    escribir(tmp_path / "completa", [0.0, 200.0, 400.0, 600.0, 720.0], nuevo)
+
+    elegido = directorio_predeterminado(tmp_path)
+    assert elegido == tmp_path / "completa", (
+        f"eligió {elegido.name}: puntúa por el nombre de los archivos y no por "
+        "la serie que la interfaz va a mostrar"
+    )
+    # Y lo elegido tiene que ser, de hecho, lo que más lejos llega al abrirlo.
+    alcances = {
+        carpeta.name: max(EstadoAplicacion(datos=carpeta).tiempos)
+        for carpeta in (mezclada, tmp_path / "completa")
+    }
+    assert alcances["mezclada"] == 100.0
+    assert alcances[elegido.name] == max(alcances.values())
+
+
 def test_una_instantanea_a_medio_escribir_no_tumba_la_interfaz(tmp_path):
     """La interfaz abre la corrida más avanzada, que puede seguir escribiéndose."""
     campos = generar_instantanea_sintetica(1, n_fotogramas=4, forma=(8, 8, 10))
@@ -664,6 +714,10 @@ def test_el_sitio_estatico_sirve_los_mismos_bytes_que_la_api(tmp_path):
     sitio = tmp_path / "sitio"
     manifiesto = exportar(sitio, origen, registrar=lambda _mensaje: None)
     assert manifiesto["n_fotogramas"] == 3
+    # El manifiesto declara lo que de verdad descarga el lector: Pages sirve el
+    # Float32 con gzip, así que el peso en disco no es el que sufre nadie.
+    assert manifiesto["MB_descarga_gzip"] <= manifiesto["MB_fotogramas"]
+    assert manifiesto["KB_por_fotograma_gzip"] > 0.0
 
     servidor, hilo, url = iniciar_servidor(0, datos=origen)
     try:
