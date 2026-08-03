@@ -1,0 +1,628 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}   % \varnothing, usado como símbolo de diámetro en las tablas
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{siunitx}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=black,urlcolor=black,citecolor=black]{hyperref}
+\usepackage{enumitem}
+\usepackage{caption}
+
+\sisetup{output-decimal-marker={,}, group-separator={.}, group-minimum-digits=4}
+\captionsetup{font=small, labelfont=bf}
+
+% Cifras de la corrida, generadas por tablas_fenomenologia.py.
+\input{macros_fenomenologia}
+
+\definecolor{aviso}{HTML}{8B2314}
+\definecolor{cajafondo}{HTML}{F2F0EA}
+\newcommand{\ojo}[1]{\textcolor{aviso}{\textbf{#1}}}
+
+% Bloque destacado. Se construye con reglas y no con \colorbox porque el
+% argumento de \colorbox es un grupo cerrado: no puede empezar en \begin y
+% terminar en \end de un entorno sin romper el agrupamiento de LaTeX.
+\newenvironment{clave}
+  {\par\medskip\noindent\rule{\linewidth}{0.9pt}\par\nobreak\smallskip
+   \noindent\ignorespaces}
+  {\par\smallskip\noindent\rule{\linewidth}{0.9pt}\par\medskip}
+
+\title{\vspace{-1.5cm}Fenomenología del aglomerado carbón--titanomagnetita
+a \SI{900}{\celsius}\\
+\large Qué cambia de fase, qué no, y por qué se detiene todo}
+\author{Laboratorio de Carbones --- Universidad Nacional de Colombia, Medellín\\
+\small Trabajo experimental base: A. Ramírez Polo, S. Puerta Araque, G. Neira Arenas}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Este documento explica, paso a paso, qué le ocurre a un aglomerado de
+\SI{0.75}{\gram} de carbón y \SI{0.25}{\gram} de concentrado de titanomagnetita
+introducido en una mufla a \SI{900}{\celsius} durante \SI{720}{\second}: cómo
+entra el calor, cómo se mueven el gas y las especies, qué fases se transforman y
+cuáles no se mueven en absoluto, por qué las composiciones se congelan, por qué
+deja de perder masa, y qué tamaño tiene el cuerpo que queda. Todas las cifras y
+todas las figuras se generan de una corrida del simulador 3-D
+(\datNFotogramas{} instantáneas hasta \SI{720}{\second});
+ninguna está escrita a mano.
+\medskip
+
+\noindent
+\ojo{El resultado central} es que el gas del interior se estabiliza en
+CO/(CO+CO$_2$) $=$ \datGas{}\,\%, un valor que queda
+\emph{entre} dos fronteras termodinámicas: por encima de la que exige la
+magnetita (\datUmbralMagnetita{}\,\%) y muy por debajo de la
+que exigen la wüstita (\datUmbralWustita{}\,\%) y la ilmenita
+(\datUmbralIlmenita{}\,\%). Eso decide, de una sola vez, todo
+lo demás: la cascada del hierro avanza hasta wüstita y se para ahí, y la
+ilmenita ---que necesita el gas más reductor de todos--- no se mueve.
+\medskip
+
+\noindent
+\ojo{ADVERTENCIA.} Todo lo que sigue es \textbf{predicción del modelo}. Toda la
+caracterización disponible del material es \emph{anterior} al ensayo, de modo
+que ninguna fase predicha tiene contraste experimental. Lo único medido con lo
+que se contrasta es la curva de pérdida de masa (ocho puntos) y tres
+observaciones cualitativas de la cronología.
+\end{abstract}
+
+\tableofcontents
+\bigskip
+
+% =====================================================================
+\section{Qué se simula}
+
+El ensayo es sencillo de enunciar y difícil de modelar: un gramo de mezcla, en
+un crisol de Ni--Cr tapado, metido en una mufla ya caliente. Lo que el
+simulador resuelve, acoplado en cada paso de tiempo, es:
+
+\begin{enumerate}[nosep,leftmargin=*]
+  \item \textbf{Momentum}: el gas en el medio poroso (Darcy--Forchheimer).
+  \item \textbf{Energía}: radiación de la mufla sobre el crisol, conducción por
+        el metal y por el lecho, y el calor de las reacciones.
+  \item \textbf{Especies}: siete gases (CO, CO$_2$, H$_2$, H$_2$O, CH$_4$,
+        N$_2$, O$_2$) que difunden y son advectados.
+  \item \textbf{Química}: devolatilización del carbón y reducción carbotérmica
+        de los óxidos de hierro, con termodinámica tabulada.
+  \item \textbf{Cohesión}: la transformación de polvo en cuerpo, y el
+        hinchamiento asociado.
+\end{enumerate}
+
+\begin{table}[H]\centering\small
+\caption{Parámetros de la corrida. La geometría y la carga son las del ensayo;
+el resto son los valores del caso \texttt{carbon\_magnetita.yaml}.}
+\input{tabla_fen_parametros}
+\end{table}
+
+\noindent
+Conviene fijar una imagen desde el principio, porque cambia la intuición de
+todo lo que sigue: \textbf{el lecho es una pastilla delgada}. Un gramo de mezcla
+con porosidad \datEpsInicial{} ocupa unos
+\datVolumenLecho{} \si{\cubic\milli\meter}, que repartidos sobre la base del
+crisol
+(\SI{23}{\milli\meter} de diámetro interior) dan poco más de
+\SI{3}{\milli\meter} de altura, dentro de un crisol de \SI{32}{\milli\meter}. No
+es una esfera en el centro de un horno: es un disco en el fondo de un vaso.
+
+% =====================================================================
+\section{Cómo entra el calor}
+
+\subsection{El camino}
+
+La mufla no toca la muestra. Lo que hay es una cadena:
+
+\begin{center}
+mufla (\SI{900}{\celsius}) $\xrightarrow{\text{radiación},\ \epsilon=0{,}8}$
+pared y fondo de Ni--Cr $\xrightarrow{\text{conducción}}$
+lecho $\xrightarrow{\text{conducción}}$ interior del lecho
+\end{center}
+
+\noindent
+El primer eslabón es radiativo y por eso es rápido: el flujo va como
+$\sigma(T_\text{mufla}^4 - T_\text{pared}^4)$, y con la mufla a
+\SI{900}{\celsius} y el crisol frío arranca en decenas de
+\si{\kilo\watt\per\square\meter}. Los eslabones siguientes son conductivos y
+mucho más lentos. El resultado es el de la figura~\ref{fig:termico}: el crisol
+sube casi en vertical los primeros segundos y el lecho lo persigue.
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.82\linewidth]{fig_fen_termico.pdf}
+\caption{Historia térmica. Arriba, las temperaturas; la banda gris es la
+ventana termoplástica del carbón. Abajo, los dos saltos térmicos que empujan el
+calor hacia dentro: ambos son positivos en todo instante, de modo que el calor
+entra siempre por el fondo y sube. El pico hacia \SI{85}{\second} es la
+pirólisis, que es endotérmica y frena el calentamiento del lecho justo cuando
+más gas está soltando.}
+\label{fig:termico}
+\end{figure}
+
+\begin{clave}
+\textbf{El lecho se calienta desde abajo.} El fondo del crisol es la vía
+principal: está en contacto directo con la base del lecho y es la parte más
+maciza. El perfil vertical decrece de forma monótona desde el fondo hacia
+arriba en todo instante. La pared lateral sólo toca el lecho en sus
+\SI{3}{\milli\meter} de altura; por encima de esa cota lo que hay al otro lado
+es gas, que conduce mal.
+\end{clave}
+
+\subsection{Los tiempos}
+
+Tres escalas distintas gobiernan el arranque:
+
+\begin{itemize}[nosep,leftmargin=*]
+  \item \textbf{0--\SI{30}{\second}}: el crisol se calienta, el lecho apenas.
+        A los \SI{30}{\second} el lecho está a
+        \datTLechoTreinta{} \si{\celsius}: todavía no ha pasado nada
+        químicamente. Coincide
+        con la observación de laboratorio de que a los \SI{30}{\second} el
+        material sigue siendo polvo suelto.
+  \item \textbf{\SI{60}{}--\SI{120}{\second}}: el lecho cruza la ventana
+        termoplástica (350--\SI{500}{\celsius}) y la compuerta de
+        devolatilización (\SI{450}{\celsius}). Aquí ocurre \emph{todo}.
+  \item \textbf{$>$\SI{150}{\second}}: el lecho se acerca asintóticamente a la
+        mufla. A \SI{720}{\second} la diferencia entre el fondo del crisol y el
+        techo del lecho es de décimas de kelvin: el sistema es isotermo.
+\end{itemize}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{fig_fen_campos.pdf}
+\caption{Corte vertical por el eje. Arriba la temperatura, abajo el CO; el
+contorno azul marca el lecho. Se ve la pastilla en el fondo y el frente térmico
+entrando por el cuerpo del crisol. A \SI{720}{\second} la escala de temperatura
+abarca poco más de un kelvin en todo el dominio.}
+\label{fig:campos}
+\end{figure}
+
+% =====================================================================
+\section{Momentum, calor y masa: quién manda}
+
+Las tres transferencias están acopladas, pero no pesan lo mismo. La forma
+limpia de decidirlo es con los números adimensionales, que el solucionador
+calcula celda a celda con las propiedades reales de cada instante.
+
+\begin{table}[H]\centering\small
+\caption{Números adimensionales al final de la corrida, y lo que implica cada
+uno. Todos comparan un mecanismo con otro: por debajo de 1 gana el denominador.
+Se dan el máximo de toda la corrida y el valor final, porque no coinciden: el
+estallido de devolatilización levanta los Péclet por encima de 1 durante unos
+treinta segundos.}
+\input{tabla_fen_adimensionales}
+\end{table}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{fig_fen_adimensionales.pdf}
+\caption{Evolución de los adimensionales. El pico hacia \datTPico{} \si{\second}
+es la devolatilización: mientras el carbón suelta gas hay velocidad, y los
+Péclet suben más de cinco órdenes de magnitud y \emph{cruzan} el 1. Fuera de
+esa ventana de unos treinta segundos vuelven a ser despreciables.}
+\label{fig:adim}
+\end{figure}
+
+\subsection{Momentum}
+
+La velocidad máxima del gas al final es \datUmax{}
+\si{\meter\per\second}: décimas de micra por segundo. El Reynolds de partícula
+queda en $10^{-6}$, así que el flujo es puramente viscoso (Darcy) y el término
+inercial de Forchheimer no interviene.
+
+\textbf{En qué afecta:} casi nada durante casi toda la corrida, y mucho durante
+un rato corto. El episodio en que el momentum importa es la devolatilización:
+hacia \datTPico{} \si{\second} el carbón genera gas dentro del poro, eso levanta
+una sobrepresión local y empuja el gas hacia la junta de la tapa, por donde
+ventea. Ahí el Reynolds de partícula llega a \datRepMax{} ---todavía viscoso,
+pero cinco órdenes por encima de su valor final--- y ese venteo es el que se
+lleva la masa perdida.
+
+\subsection{Calor}
+
+Al final $\mathrm{Pe}_T \sim 10^{-5}$: la advección de calor por el gas es cinco
+órdenes de magnitud menor que la conducción. Pero en el pico de la
+devolatilización $\mathrm{Pe}_T$ alcanza \datPeTermicoMax{}: durante esos
+segundos el gas que sale \emph{sí} arrastra calor más rápido de lo que el lecho
+lo conduce.
+
+\textbf{En qué afecta:} fuera de esa ventana, el calor se transmite por
+conducción y punto, y la temperatura del lecho es la que le impone el crisol a
+través del contacto. Dentro de ella hay que contar además con el gas: es una de
+las razones de que el lecho se frene hacia los \SI{85}{\second}, junto con el
+calor endotérmico de pirólisis. No hay, en cambio, convección natural en ningún
+momento.
+
+Queda un matiz honesto. El Rayleigh que calcula el solucionador es
+\datRa{}, y su valor crítico
+\datRaCritico{}: está un \SI{9}{\percent} \emph{por
+encima} del umbral de convección natural. El caso, sin embargo, tiene la
+boyancia desactivada, y la justificación escrita en el archivo del caso dice
+que el Rayleigh del ensayo está por debajo del umbral. Las dos cosas no
+concuerdan (véase §\ref{sec:limites}). El efecto práctico es pequeño ---con
+$\mathrm{Pe}_T \sim 10^{-5}$, aunque arrancara una celda convectiva débil la
+conducción seguiría dominando por varios órdenes---, pero la justificación, tal
+como está escrita, no se sostiene con el número que produce esta corrida.
+
+\subsection{Masa}
+
+Al final $\mathrm{Pe}_m \sim 10^{-5}$, y en el pico llega a
+\datPeMasicoMax{}: es el número que más se despega, porque el gas que empuja es
+precisamente el que transporta las especies. El Damköhler, en cambio, es
+$\sim 10^{-17}$ de principio a fin.
+
+\textbf{En qué afecta:} fuera del estallido las especies se mueven por difusión,
+no arrastradas; durante el estallido, el gas de pirólisis las barre hacia la
+salida. Y el Damköhler minúsculo dice algo importante y a menudo malentendido: la
+reacción es \emph{lentísima} comparada con el transporte. No hay control por
+difusión. Cuando una reacción no avanza en este sistema, no es porque al
+reactivo le cueste llegar: es porque la termodinámica no la deja, o porque la
+cinética es despreciable a esa temperatura. Ésta es la clave para entender la
+ilmenita.
+
+% =====================================================================
+\section{Qué cambia de fase y qué no}
+
+\begin{table}[H]\centering\small
+\caption{Inventario de fases sólidas al principio y al final. La columna de
+resultado sale de comparar las dos masas, no de una expectativa: «no cambia»
+significa que la variación queda por debajo de una parte en cien mil, o de
+\SI{0.1}{\micro\gram} en términos absolutos. Ambos umbrales están muy por
+debajo de lo que vería una balanza.}
+\input{tabla_fen_fases}
+\end{table}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{fig_fen_fases.pdf}
+\caption{Evolución de las fases sólidas. Todo el movimiento ocurre entre
+\SI{60}{} y \SI{130}{\second}. La ilmenita y el cuarzo son líneas rectas de
+principio a fin.}
+\label{fig:fases}
+\end{figure}
+
+\subsection{Lo que se transforma}
+
+\paragraph{El volátil del carbón.} Es el gran protagonista. Cae de
+\datVolatilInicial{} \si{\milli\gram} a \datVolatilFinal{} \si{\milli\gram}.
+Sale como CH$_4$, H$_2$,
+H$_2$O, CO y CO$_2$, y es lo que se pierde por la junta de la tapa. No es una
+reacción con la magnetita: es pirólisis del carbón, que ocurriría igual sin
+mineral presente.
+
+\paragraph{La cascada del hierro.} Los óxidos se reducen en el orden que impone
+la termodinámica, cada uno más difícil que el anterior:
+\[
+\mathrm{Fe_2O_3} \;\longrightarrow\; \mathrm{Fe_3O_4}
+\;\longrightarrow\; \mathrm{FeO} \;\longrightarrow\; \mathrm{Fe}
+\]
+La hematita desaparece por completo (\datHematitaInicial{} \si{\milli\gram}
+$\to$ 0). La magnetita desaparece por completo
+(\datMagnetitaInicial{} \si{\milli\gram} $\to$ 0). Y toda
+esa materia acaba en wüstita: \datFeo{}
+\si{\milli\gram}. El hierro metálico se queda en
+\datFe{} \si{\milli\gram}, que es apenas el
+\datPctFeMetal{}\,\% del hierro total.
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{fig_fen_hierro.pdf}
+\caption{La cascada se detiene en wüstita. A la derecha, el hierro metálico en
+su propia escala: son trazas.}
+\label{fig:hierro}
+\end{figure}
+
+\subsection{Lo que no se mueve: la ilmenita}
+
+\begin{clave}
+La ilmenita empieza en \datIlmenita{} \si{\milli\gram} y termina en
+\datIlmenita{} \si{\milli\gram}. No cambia: la diferencia que devuelve la
+corrida es \emph{exactamente} cero, no una cantidad pequeña.
+\end{clave}
+
+\noindent
+La razón no es cinética ni de transporte ---ya vimos que el Damköhler descarta
+el control por difusión---: es \textbf{termodinámica}, y se puede poner un
+número encima.
+
+Toda reducción por CO tiene la forma general
+\[
+\mathrm{MO_{(s)}} + \mathrm{CO_{(g)}} \;\rightleftharpoons\;
+\mathrm{M_{(s)}} + \mathrm{CO_{2(g)}},
+\qquad
+K = \frac{p_{\mathrm{CO_2}}}{p_{\mathrm{CO}}} .
+\]
+El equilibrio se alcanza cuando la fracción $x_{\mathrm{CO}} =
+\mathrm{CO}/(\mathrm{CO}+\mathrm{CO_2})$ vale $1/(1+K)$. Por encima de ese
+valor el gas es lo bastante reductor y la reacción avanza; por debajo, no
+avanza \emph{aunque haya carbono de sobra y todo el tiempo del mundo}. Cada
+óxido tiene su umbral, y son muy distintos entre sí (tabla~\ref{tab:fronteras}).
+
+\begin{table}[H]\centering\small
+\caption{Fracción mínima de CO que exige cada reducción a \SI{900}{\celsius},
+calculada con las tablas termodinámicas del propio simulador. La última columna
+compara con el gas que realmente hay en la corrida
+(\datGas{}\,\%).}
+\label{tab:fronteras}
+\input{tabla_fen_fronteras}
+\end{table}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{fig_fen_gases.pdf}
+\caption{Izquierda: los gases del interior. Derecha: la razón
+CO/(CO+CO$_2$) frente a las tres fronteras. El gas se queda cómodamente por
+encima de la de la magnetita, y muy lejos de las otras dos. Ése es todo el
+argumento.}
+\label{fig:gases}
+\end{figure}
+
+\noindent
+La ilmenita exige \datUmbralIlmenita{}\,\% de CO. El gas
+ofrece \datGas{}\,\%. Faltan cuarenta puntos porcentuales, y
+no es una diferencia que se cierre esperando más tiempo: es el estado de
+equilibrio del sistema. Para reducir la ilmenita habría que subir la
+temperatura bastante por encima de \SI{900}{\celsius}, o cambiar la atmósfera.
+
+Hay además una razón estructural que agrava lo anterior y que viene del DRX:
+el hierro de la ilmenita está en \emph{lamas exsueltas dentro de los granos de
+titanomagnetita}. Aunque la termodinámica lo permitiera, ese hierro está peor
+expuesto que el de la magnetita libre.
+
+\paragraph{Cuarzo y cenizas.} No cambian por la misma clase de razón: no hay
+ninguna ruta accesible a \SI{900}{\celsius}. Y la fayalita
+(Fe$_2$SiO$_4$), que a veces se invoca para explicar la cohesión, se mantiene
+en cero: funde a \SI{1178}{\celsius}, casi trescientos grados por encima del
+ensayo. \textbf{No hay escoria líquida en este ensayo.}
+
+% =====================================================================
+\section{Por qué se congelan las composiciones}
+
+Mirando la figura~\ref{fig:fases}, todo el movimiento químico ocurre en una
+ventana de unos \SI{70}{\second} y después las líneas son rectas. Hay tres
+razones superpuestas, y conviene no confundirlas:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Se acaba el reactivo que se estaba consumiendo.} La hematita y
+        la magnetita se agotan literalmente: llegan a cero. Una reacción sin
+        reactivo se para sola.
+  \item \textbf{Se llega a una frontera termodinámica.} La wüstita sí queda
+        ---\datFeo{} \si{\milli\gram}--- y hay carbono de
+        sobra (\datCarbono{} \si{\milli\gram}, intacto), pero el gas no es lo bastante
+        reductor para pasar de ahí. Esto no es agotamiento: es un tope.
+  \item \textbf{Se acaba el volátil.} La devolatilización es la que genera el
+        gas; cuando el volátil liberable se agota, la fuente se apaga y el
+        sistema queda en el estado en que estaba.
+\end{enumerate}
+
+\noindent
+El punto 2 es el importante y el que más se malinterpreta. \textbf{Que sobre
+carbono no significa que la reducción pueda continuar.} El carbono fijo termina
+en \datCarbono{} \si{\milli\gram}, que es lo mismo con que empezó salvo una
+parte en diez millones. No se consume porque la reacción de Boudouard
+(C + CO$_2$ $\rightarrow$ 2\,CO), que es la que
+regeneraría el CO, es demasiado lenta a esta temperatura para mover el sistema
+en \SI{720}{\second}.
+
+% =====================================================================
+\section{Por qué deja de perder masa}
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.82\linewidth]{fig_fen_perdida.pdf}
+\caption{Pérdida de masa. La curva del modelo cae sobre los ocho puntos
+medidos sin haber sido ajustada a ellos.}
+\label{fig:perdida}
+\end{figure}
+
+\noindent
+La pérdida final es \datPerdidaFinal{}\,\%, frente al
+\SI{25.20}{\percent} medido a \SI{720}{\second}. Y alcanza el
+\SI{99}{\percent} de su valor final a los
+\datTMeseta{} \si{\second}: a partir de ahí la curva es
+plana (\datMeseta{}\,\% entre \SI{300}{} y
+\SI{720}{\second}).
+
+\begin{clave}
+\textbf{La pérdida de masa no mide la reducción.} Prácticamente toda es
+devolatilización del carbón. El oxígeno arrancado a los óxidos es una fracción
+mínima del total, y va sumado a lo mismo que se mide en la balanza.
+\end{clave}
+
+\noindent
+La consecuencia metodológica es seria y conviene decirla sin rodeos: se puede
+ajustar muy bien la curva de pérdida de masa ---un $R^2$ alto--- y no haber
+demostrado nada sobre las fases. Un ajuste de Gompertz sobre estos ocho puntos
+caracteriza la \emph{pirólisis}, no la reducción. De hecho, con estos ocho datos
+el grado de reducción no es identificable: puede variar en un rango amplio sin
+que el ajuste empeore de forma apreciable.
+
+Por eso el argumento de este documento sobre las fases \textbf{no se apoya en la
+curva de pérdida de masa} sino en la termodinámica de la
+tabla~\ref{tab:fronteras}, que es independiente de ella.
+
+Y ahí está la razón de que la curva se aplane: no queda volátil que soltar. El
+sistema no ha llegado a ningún equilibrio global ---queda wüstita y queda
+carbono--- simplemente se ha quedado sin la única fuente que movía la balanza.
+
+% =====================================================================
+\section{El aglomerado: cómo se forma y qué tamaño tiene}
+
+\subsection{De polvo a cuerpo}
+
+La cohesión de este sistema \textbf{es coquización del carbón}, no puentes
+metálicos ni escoria. El carbón tiene índice de hinchamiento 8 (ASTM D720): es
+fuertemente coquizable. Al cruzar la ventana termoplástica (350--\SI{500}{
+\celsius}) la masa se reblandece, las partículas se sueldan entre sí y al
+resolidificar queda un cuerpo único con los granos minerales embebidos.
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{fig_fen_aglomerado.pdf}
+\caption{Formación del aglomerado. La cohesión cruza el umbral operativo hacia
+\datTFormacion{} \si{\second}. El hinchamiento es
+irreversible: sube durante la etapa plástica y se queda.}
+\label{fig:aglomerado}
+\end{figure}
+
+\begin{table}[H]\centering\small
+\caption{Cronología. Cada columna sale de la corrida.}
+\input{tabla_fen_cronologia}
+\end{table}
+
+\noindent
+Merece la pena subrayar lo siguiente, porque es la única validación de
+cronología que existe. El laboratorio aportó tres observaciones cualitativas, y
+el modelo, \textbf{sin haber sido ajustado a ellas}, produce:
+
+\begin{itemize}[nosep,leftmargin=*]
+  \item a los \SI{30}{\second}, \datPerdidaTreinta{}\,\% de pérdida
+        y cohesión nula
+        \;---\; \emph{«polvo suelto»};
+  \item a los \SI{90}{\second}, el hinchamiento ya en \datHinchamientoNoventa{}
+        y la pérdida
+        disparada \;---\; \emph{«se hincha»};
+  \item a los \SI{120}{\second}, cohesión por encima del umbral
+        \;---\; \emph{«bien formado»}.
+\end{itemize}
+
+\subsection{El diámetro}
+
+Ésta es la pregunta que más cuesta responder bien, porque la respuesta
+más natural es la equivocada. \textbf{El aglomerado no es una esfera.} Está
+confinado por la pared del crisol: no puede crecer a lo ancho, así que su
+diámetro no lo fija la física del hinchamiento sino la geometría del recipiente.
+
+\begin{table}[H]\centering\small
+\caption{Dimensiones del cuerpo formado, al final de la corrida.}
+\input{tabla_fen_aglomerado}
+\end{table}
+
+\begin{clave}
+\textbf{Respuesta.} El aglomerado formado es un disco de
+\textbf{\datDiametro{} \si{\milli\meter} de diámetro} y
+\textbf{\datAltura{} \si{\milli\meter} de altura}. El diámetro lo impone la
+pared del crisol: el cuerpo empieza a cuajar hacia \datTFormacion{}
+\si{\second}, alcanza el ancho del crisol en los diez segundos siguientes, y a
+partir de ahí \emph{no vuelve a cambiar} hasta los \SI{720}{\second}.
+\end{clave}
+
+\noindent
+Si lo que se busca es un número comparable con el tamaño de partida, hay dos
+formas legítimas de darlo, y conviene no mezclarlas:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Diámetro de esfera equivalente}: la esfera que tendría el mismo
+        volumen aparente es de \datDesfe{}
+        \si{\milli\meter}. Sirve para comparar con las partículas de partida,
+        de \SI{175}{\micro\meter}: el cuerpo formado es unas
+        \textbf{\datCrecimientoLineal{} veces mayor en escala lineal}, y unas
+        \datCrecimientoVolumen{} veces en volumen. Ése es el salto que significa
+        «aglomerar».
+  \item \textbf{Altura, que es lo que sí crece}: como la pared impide la
+        expansión radial, todo el hinchamiento se resuelve hacia arriba. Con un
+        factor de hinchamiento de \datHinchamiento{}, la superficie libre
+        subiría de \datAltura{} a \datAlturaLibre{} \si{\milli\meter}.
+\end{itemize}
+
+\noindent
+Hay que ser explícito sobre un límite del modelo aquí. La malla del simulador es
+\textbf{fija}: el lecho ocupa siempre las mismas celdas. El hinchamiento no
+entra haciendo crecer el cuerpo hacia arriba, sino \textbf{aumentando la
+porosidad} de esas celdas, que pasa de \datEpsInicial{} a
+\datEpsFinal{}. Es consistente ---el volumen de materia sólida por
+el complemento de la porosidad reproduce el inventario de fases--- pero
+significa que la altura de \datAlturaLibre{}
+\si{\milli\meter} es una \emph{predicción del submodelo de hinchamiento}, no
+algo que el 3-D resuelva moviendo la superficie.
+
+% =====================================================================
+\section{Límites de lo que aquí se afirma}
+\label{sec:limites}
+
+Este documento sería deshonesto sin esta sección.
+
+\paragraph{Ninguna fase está validada.} Toda la caracterización del material
+(DRX-Rietveld) es \emph{previa} al ensayo. La predicción de que el producto es
+wüstita con la ilmenita intacta no se ha comprobado con nada. Bastaría un DRX o
+un Mössbauer del aglomerado \emph{después} del ensayo para confirmarla o
+tumbarla; es, con diferencia, el dato que más falta hace.
+
+\paragraph{El Rayleigh contradice su propia justificación.} El caso desactiva la
+boyancia con el argumento de que el Rayleigh está por debajo del umbral
+convectivo, pero el que calcula el solucionador es
+\datRa{} frente a un crítico de
+\datRaCritico{}: un \SI{9}{\percent} por encima. La
+conclusión de que domina la conducción se sostiene igualmente por el Péclet,
+pero la justificación escrita no.
+
+\paragraph{El gas no cumple su ecuación de estado.} En el instante inicial la
+suma de las concentraciones de las siete especies coincide exactamente con
+$P/RT$. Al final de la corrida la supera en un factor de aproximadamente 3,4:
+el modelo inyecta los productos de pirólisis sin que la densidad del gas
+responda. Esto \emph{no} afecta al argumento de las fases, que descansa en la
+\emph{razón} CO/(CO+CO$_2$) y no en concentraciones absolutas ---una
+sobredensidad uniforme se cancela al dividir---, pero sí quiere decir que las
+concentraciones absolutas de la figura~\ref{fig:gases} no deben leerse como
+densidades reales.
+
+\paragraph{El submodelo de cohesión tiene parámetros calibrables.} Los tiempos
+de plastificación y coquización (\SI{15}{\second} cada uno) y la expansión por
+unidad de índice de hinchamiento no son constantes medidas de esta muestra. La
+cronología que reproducen es coherente con las tres observaciones del
+laboratorio, pero eso es una comprobación débil, no una calibración.
+
+\paragraph{Qué falta del laboratorio, por orden de valor.}
+\begin{enumerate}[nosep,leftmargin=*]
+  \item DRX / Mössbauer / SEM del aglomerado \textbf{después} del ensayo.
+  \item Análisis del gas de salida (CO/CO$_2$): validaría directamente la
+        figura~\ref{fig:gases}, que es el eje de todo el argumento.
+  \item TGA del carbón solo, con su historia térmica medida: separaría
+        devolatilización de reducción.
+  \item Dilatometría de la mezcla: fijaría el factor de hinchamiento y con él
+        la altura del cuerpo.
+\end{enumerate}
+
+% =====================================================================
+\section{Resumen}
+
+\begin{enumerate}[leftmargin=*]
+  \item El calor entra por \textbf{radiación} de la mufla al crisol y de ahí por
+        \textbf{conducción}, principalmente por el fondo. El lecho es una
+        pastilla delgada y se calienta de abajo arriba.
+  \item \textbf{El transporte por advección sólo cuenta durante el estallido de
+        gas}. Fuera de esa ventana de unos treinta segundos, Re y Pe rondan
+        $10^{-5}$--$10^{-6}$: el calor se conduce y las especies difunden. En el
+        pico, hacia \datTPico{} \si{\second}, los Péclet cruzan el 1
+        ($\mathrm{Pe}_m$ llega a \datPeMasicoMax{}). El Damköhler, siempre
+        $\sim10^{-17}$, descarta el control por transporte en todo momento.
+  \item \textbf{Cambian de fase}: el volátil del carbón (se va), la hematita y
+        la magnetita (se consumen del todo) y la wüstita (se forma).
+  \item \textbf{No cambian}: la ilmenita, el cuarzo, las cenizas y el carbono
+        fijo. La ilmenita porque exige un gas con
+        \datUmbralIlmenita{}\,\% de CO y sólo hay
+        \datGas{}\,\%.
+  \item \textbf{Todo ocurre entre \SI{60}{} y \SI{130}{\second}} y luego se
+        congela: se agotan los óxidos reducibles, se agota el volátil, y lo que
+        queda tropieza con una frontera termodinámica.
+  \item \textbf{La pérdida de masa se detiene} porque se acaba el volátil, no
+        porque se acabe la reducción. Los dos procesos no se distinguen en la
+        balanza.
+  \item \textbf{El aglomerado} es un disco de
+        \datDiametro{} $\times$
+        \datAltura{} \si{\milli\meter}, con el diámetro
+        impuesto por el crisol, formado hacia
+        \datTFormacion{} \si{\second} y estable a partir de
+        ahí. La cohesión es coquización del carbón.
+\end{enumerate}
+
+\vfill
+\noindent\rule{\linewidth}{0.4pt}\\
+\small
+Documento generado automáticamente de la corrida del simulador 3-D. Figuras y
+tablas: \texttt{informe/figuras\_fenomenologia.py} y
+\texttt{informe/tablas\_fenomenologia.py}. Visor interactivo de la misma
+corrida: \url{https://aleramirezpo.github.io/simulador3d-carbon-magnetita/}
+
+\end{document}

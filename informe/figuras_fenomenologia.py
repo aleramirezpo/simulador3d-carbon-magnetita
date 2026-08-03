@@ -1,0 +1,409 @@
+"""Figuras del documento de fenomenología. Todas salen de la corrida.
+
+Uso:  python informe/figuras_fenomenologia.py [directorio_de_resultados]
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+
+RAIZ = Path(__file__).resolve().parents[1]
+if str(RAIZ) not in sys.path:
+    sys.path.insert(0, str(RAIZ))
+if str(RAIZ.parent / "simulacion_v3" / "src") not in sys.path:
+    sys.path.insert(0, str(RAIZ.parent / "simulacion_v3" / "src"))
+
+from informe.datos_fenomenologia import (  # noqa: E402
+    diagnosticos,
+    fronteras_co,
+    serie_vigente,
+)
+
+SALIDA = RAIZ / "informe"
+
+AZUL = "#1f5c8b"
+ROJO = "#b3402f"
+VERDE = "#5e6b3a"
+NARANJA = "#c0842f"
+GRIS = "#5a6570"
+MORADO = "#6b4a7a"
+CIAN = "#2f8b8b"
+
+plt.rcParams.update({
+    "font.size": 9,
+    "axes.titlesize": 10,
+    "axes.labelsize": 9,
+    "legend.fontsize": 7.5,
+    "figure.dpi": 150,
+    "axes.grid": True,
+    "grid.alpha": 0.25,
+    "grid.linewidth": 0.5,
+})
+
+# Cronología cualitativa del laboratorio. Son fechas, no ajustes.
+HITOS = ((30.0, "30 s\npolvo suelto"), (90.0, "90 s\nhincha"), (120.0, "120 s\nformado"))
+
+
+def _guardar(fig, nombre):
+    ruta = SALIDA / nombre
+    fig.savefig(ruta, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  {nombre}")
+
+
+def _marcar_hitos(eje, con_texto=True, y=0.97):
+    # Los tres hitos caen en 30, 90 y 120 s: muy juntos en un eje de 720 s. Se
+    # escalonan en altura y se anclan por el lado que no invade al vecino.
+    posiciones = ((y, "right"), (y - 0.13, "right"), (y, "left"))
+    for (t, etiqueta), (altura, lado) in zip(HITOS, posiciones):
+        eje.axvline(t, color=GRIS, lw=0.7, ls=":", zorder=0)
+        if con_texto:
+            eje.annotate(f" {etiqueta} ", xy=(t, altura),
+                         xycoords=("data", "axes fraction"),
+                         fontsize=6.5, color=GRIS, ha=lado, va="top")
+
+
+def _tabla_experimental():
+    from datos_experimentales import TABLA_PERDIDA_MASA
+    return np.asarray(TABLA_PERDIDA_MASA, dtype=float)
+
+
+# --------------------------------------------------------------------- calor
+
+def figura_termica(s):
+    t = np.asarray(s["t"])
+    fig, (a1, a2) = plt.subplots(2, 1, figsize=(6.4, 5.2), sharex=True,
+                                 gridspec_kw={"height_ratios": [2, 1]})
+    a1.plot(t, np.asarray(s["T_mufla"]) - 273.15, color=ROJO, lw=1.6, label="mufla")
+    a1.plot(t, np.asarray(s["T_fondo_crisol"]) - 273.15, color=NARANJA, lw=1.4,
+            label="fondo del crisol")
+    a1.plot(t, np.asarray(s["T_lecho"]) - 273.15, color=AZUL, lw=1.6, label="lecho (media)")
+    a1.fill_between(t, np.asarray(s["T_lecho_min"]) - 273.15,
+                    np.asarray(s["T_lecho_max"]) - 273.15,
+                    color=AZUL, alpha=0.18, lw=0, label="lecho (mín-máx)")
+    a1.axhspan(350, 500, color=VERDE, alpha=0.13, lw=0, zorder=0)
+    a1.annotate("ventana termoplástica 350–500 °C", xy=(430, 425), fontsize=6.5,
+                color=VERDE, ha="left", va="center")
+    a1.set_ylabel("temperatura [°C]")
+    a1.legend(loc="lower right", ncol=2)
+    _marcar_hitos(a1, y=0.62)
+    a1.set_title("Historia térmica: la mufla radia, el crisol conduce, el lecho sigue")
+
+    a2.plot(t, np.asarray(s["T_fondo_crisol"]) - np.asarray(s["T_lecho_base"]),
+            color=NARANJA, lw=1.4, label="fondo del crisol − base del lecho")
+    a2.plot(t, np.asarray(s["T_lecho_base"]) - np.asarray(s["T_lecho_techo"]),
+            color=MORADO, lw=1.4, label="base − techo del lecho")
+    a2.axhline(0.0, color=GRIS, lw=0.7)
+    a2.set_ylabel("salto [K]")
+    a2.set_xlabel("tiempo [s]")
+    a2.set_xlim(0, t[-1])
+    a2.legend(loc="upper right")
+    _marcar_hitos(a2, con_texto=False)
+    a2.set_title("El calor entra por abajo: los dos saltos son positivos siempre",
+                 fontsize=9)
+    _guardar(fig, "fig_fen_termico.pdf")
+
+
+# --------------------------------------------------------------------- fases
+
+def figura_fases(s, fases):
+    t = np.asarray(s["t"])
+    estilo = {
+        "volatil": ("volátil del carbón", ROJO, "-"),
+        "C": ("carbono fijo → char", GRIS, "-"),
+        "Fe3O4": ("magnetita Fe$_3$O$_4$", AZUL, "-"),
+        "Fe2O3": ("hematita Fe$_2$O$_3$", NARANJA, "-"),
+        "FeO": ("wüstita FeO", VERDE, "-"),
+        "Fe": ("hierro metálico", MORADO, "-"),
+        "FeTiO3": ("ilmenita FeTiO$_3$", CIAN, "--"),
+        "SiO2": ("cuarzo SiO$_2$", "#8b6b2f", "--"),
+        "ceniza": ("cenizas", "#9a9a9a", "--"),
+    }
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(7.2, 3.4))
+    for fase, (etiqueta, color, ls) in estilo.items():
+        clave = f"m_{fase}"
+        if clave not in s:
+            continue
+        y = 1000.0 * np.asarray(s[clave])
+        eje = a1 if y.max() > 60.0 else a2
+        eje.plot(t, y, color=color, ls=ls, lw=1.5, label=etiqueta)
+    for eje, titulo in ((a1, "Fases mayoritarias"), (a2, "Fases minoritarias")):
+        eje.set_xlabel("tiempo [s]")
+        eje.set_ylabel("masa [mg]")
+        eje.set_xlim(0, t[-1])
+        eje.legend(loc="center right")
+        eje.set_title(titulo, fontsize=9)
+        _marcar_hitos(eje, con_texto=False)
+    a2.annotate("la ilmenita y el cuarzo\nno se mueven en 720 s",
+                xy=(210, 43.25), xytext=(60, 30), fontsize=7, color=CIAN,
+                arrowprops=dict(arrowstyle="->", color=CIAN, lw=0.8))
+    a2.legend(loc="center right", framealpha=0.92)
+    fig.suptitle("Qué cambia de fase y qué no", fontsize=10)
+    _guardar(fig, "fig_fen_fases.pdf")
+
+
+def figura_cascada_hierro(s):
+    t = np.asarray(s["t"])
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(7.2, 3.2))
+    for fase, etiqueta, color in (
+        ("Fe2O3", "hematita Fe$_2$O$_3$", NARANJA),
+        ("Fe3O4", "magnetita Fe$_3$O$_4$", AZUL),
+        ("FeO", "wüstita FeO", VERDE),
+        ("FeTiO3", "ilmenita FeTiO$_3$", CIAN),
+    ):
+        a1.plot(t, 1000.0 * np.asarray(s[f"m_{fase}"]), color=color, lw=1.6, label=etiqueta)
+    a1.set_ylabel("masa [mg]")
+    a1.set_xlabel("tiempo [s]")
+    a1.set_xlim(0, t[-1])
+    a1.legend(loc="center right")
+    a1.set_title("La cascada se detiene en wüstita", fontsize=9)
+    _marcar_hitos(a1, con_texto=False)
+
+    a2.plot(t, 1000.0 * np.asarray(s["m_Fe"]), color=MORADO, lw=1.6)
+    a2.set_ylabel("hierro metálico [mg]")
+    a2.set_xlabel("tiempo [s]")
+    a2.set_xlim(0, t[-1])
+    a2.set_title("El hierro metálico se queda en trazas", fontsize=9)
+    total_fe = 1000.0 * (np.asarray(s["m_Fe"])[-1])
+    a2.annotate(f"{total_fe:.2f} mg al final", xy=(0.96, 0.12), xycoords="axes fraction",
+                ha="right", fontsize=7.5, color=MORADO)
+    _marcar_hitos(a2, con_texto=False)
+    fig.suptitle("Reducción del hierro: hasta dónde llega", fontsize=10)
+    _guardar(fig, "fig_fen_hierro.pdf")
+
+
+# --------------------------------------------------------- pérdida de masa
+
+def figura_perdida(s):
+    t = np.asarray(s["t"])
+    perdida = np.asarray(s["perdida_pct"])
+    fig, eje = plt.subplots(figsize=(6.4, 3.6))
+    eje.plot(t, perdida, color=AZUL, lw=1.8, label="modelo 3-D", zorder=3)
+    try:
+        tabla = _tabla_experimental()
+        eje.plot(tabla[:, 0], tabla[:, 3], "o", color=ROJO, ms=5,
+                 label="medido (8 puntos, Tabla 3)", zorder=4)
+    except Exception:
+        pass
+    eje.set_xlabel("tiempo [s]")
+    eje.set_ylabel("pérdida de masa sólida [%]")
+    eje.set_xlim(0, t[-1])
+    eje.legend(loc="lower right")
+    _marcar_hitos(eje, y=0.55)
+    meseta = perdida[t >= 300.0]
+    eje.annotate(
+        f"meseta: {meseta.min():.2f}–{meseta.max():.2f} %\n"
+        f"(el volátil ya se agotó)",
+        xy=(600, perdida[-1]), xytext=(430, perdida[-1] - 9), fontsize=7.5, color=GRIS,
+        arrowprops=dict(arrowstyle="->", color=GRIS, lw=0.8))
+    eje.set_title("Casi toda la pérdida ocurre entre 60 y 120 s")
+    _guardar(fig, "fig_fen_perdida.pdf")
+
+
+# --------------------------------------------------------------------- gases
+
+def figura_gases(s, especies):
+    t = np.asarray(s["t"])
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(7.2, 3.2))
+    colores = {"CO": AZUL, "CO2": ROJO, "H2": VERDE, "H2O": CIAN,
+               "CH4": NARANJA, "N2": GRIS, "O2": MORADO}
+    for especie in especies:
+        y = np.asarray(s[f"c_{especie}"])
+        if y.max() <= 0.0:
+            continue
+        a1.plot(t, y, color=colores.get(especie, GRIS), lw=1.4,
+                label=especie.replace("2", "$_2$").replace("4", "$_4$"))
+    a1.set_yscale("log")
+    a1.set_xlabel("tiempo [s]")
+    a1.set_ylabel("concentración media [mol/m$^3$]")
+    a1.set_xlim(0, t[-1])
+    a1.legend(loc="lower right", ncol=2)
+    a1.set_title("Gases en el interior", fontsize=9)
+    _marcar_hitos(a1, con_texto=False)
+
+    a2.plot(t, np.asarray(s["CO_sobre_COx"]), color=AZUL, lw=1.8, zorder=5,
+            label="gas de la corrida")
+    fronteras = fronteras_co()
+    estilo_frontera = (
+        # La frontera de la magnetita cae casi sobre el cero de este eje: su
+        # rótulo se ancla a la izquierda para no chocar con la leyenda.
+        ("magnetita", "Fe$_3$O$_4$→FeO", VERDE, 0.02, "left"),
+        ("wustita", "FeO→Fe", NARANJA, 0.98, "right"),
+        ("ilmenita", "FeTiO$_3$→Fe", CIAN, 0.98, "right"),
+    )
+    for clave, etiqueta, color, x, lado in estilo_frontera:
+        umbral = fronteras[clave]
+        a2.axhline(umbral, color=color, lw=1.1, ls="--")
+        a2.annotate(f"{etiqueta}  {100 * umbral:.2f} %",
+                    xy=(x, umbral), xycoords=("axes fraction", "data"),
+                    ha=lado, va="bottom", fontsize=6.5, color=color)
+    a2.set_ylim(0, 1.05)
+    a2.set_xlabel("tiempo [s]")
+    a2.set_ylabel(r"CO/(CO+CO$_2$)")
+    a2.set_xlim(0, t[-1])
+    a2.legend(loc="lower right", fontsize=6.5)
+    a2.set_title("El gas queda entre dos fronteras", fontsize=9)
+    _marcar_hitos(a2, con_texto=False)
+    _guardar(fig, "fig_fen_gases.pdf")
+
+
+# ---------------------------------------------------------------- aglomerado
+
+def figura_aglomerado(s):
+    t = np.asarray(s["t"])
+    fig, ejes = plt.subplots(2, 2, figsize=(7.2, 5.4))
+    fig.subplots_adjust(hspace=0.42, wspace=0.30)
+    (a1, a2), (a3, a4) = ejes
+
+    a1.plot(t, np.asarray(s["cohesion_max"]), color=ROJO, lw=1.6, label="máxima")
+    a1.plot(t, np.asarray(s["cohesion_media"]), color=AZUL, lw=1.4, label="media del lecho")
+    a1.axhline(0.5, color=GRIS, lw=0.8, ls="--")
+    a1.annotate("umbral de aglomerado", xy=(430, 0.53), fontsize=6.5, color=GRIS)
+    a1.set_ylabel("cohesión [-]")
+    a1.legend(loc="lower right")
+    a1.set_title("Cohesión: el polvo se vuelve cuerpo", fontsize=9)
+
+    a2.plot(t, np.asarray(s["hinchamiento_medio"]), color=VERDE, lw=1.6)
+    a2.set_ylabel("factor de hinchamiento [-]")
+    a2.set_title("Hinchamiento (irreversible)", fontsize=9)
+
+    a3.plot(t, np.asarray(s["eps_media"]), color=MORADO, lw=1.6)
+    a3.set_ylabel("porosidad del lecho [-]")
+    a3.set_xlabel("tiempo [s]")
+    a3.set_title("El hinchamiento entra como porosidad", fontsize=9)
+
+    a4.plot(t, np.asarray(s["D_huella_mm"]), color=AZUL, lw=1.6, label="Ø de la huella")
+    a4.plot(t, np.asarray(s["D_aglomerado_mm"]), color=NARANJA, lw=1.4,
+            label="Ø de esfera equivalente")
+    a4.plot(t, np.asarray(s["altura_aglomerado_mm"]), color=VERDE, lw=1.4, label="altura")
+    a4.plot(t, np.asarray(s["altura_libre_mm"]), color=VERDE, lw=1.2, ls="--",
+            label="altura libre predicha")
+    a4.set_ylabel("dimensión [mm]")
+    a4.set_xlabel("tiempo [s]")
+    a4.legend(loc="center right")
+    a4.set_title("Tamaño del cuerpo formado", fontsize=9)
+
+    for eje in (a1, a2, a3, a4):
+        eje.set_xlim(0, t[-1])
+        _marcar_hitos(eje, con_texto=False)
+    fig.suptitle("Formación del aglomerado", fontsize=10, y=0.98)
+    _guardar(fig, "fig_fen_aglomerado.pdf")
+
+
+# ----------------------------------------------------------- adimensionales
+
+def figura_adimensionales(s, Ra_critico):
+    t = np.asarray(s["t"])
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(7.2, 3.2))
+    for clave, etiqueta, color in (
+        ("Re_p", "Re de partícula", AZUL),
+        ("Pe_termico", "Pe térmico", ROJO),
+        ("Pe_masico", "Pe másico", VERDE),
+        ("Da", "Da", MORADO),
+    ):
+        y = np.abs(np.asarray(s[clave]))
+        y[y <= 0] = np.nan
+        a1.plot(t, y, color=color, lw=1.4, label=etiqueta)
+    a1.axhline(1.0, color=GRIS, lw=0.9, ls="--")
+    a1.annotate("advección = difusión", xy=(0.98, 1.4),
+                xycoords=("axes fraction", "data"), ha="right",
+                fontsize=6.5, color=GRIS)
+    a1.set_yscale("log")
+    a1.set_xlabel("tiempo [s]")
+    a1.set_ylabel("valor [-]")
+    a1.set_xlim(0, t[-1])
+    a1.legend(loc="lower left", ncol=2)
+    a1.set_title("Sólo el estallido de gas cruza el 1", fontsize=9)
+
+    a2.plot(t, np.asarray(s["Ra"]), color=NARANJA, lw=1.6, label="Ra")
+    if np.isfinite(Ra_critico):
+        a2.axhline(Ra_critico, color=GRIS, lw=0.9, ls="--",
+                   label=f"Ra crítico = {Ra_critico:.0f}")
+    a2.set_xlabel("tiempo [s]")
+    a2.set_ylabel("Rayleigh [-]")
+    a2.set_xlim(0, t[-1])
+    a2.legend(loc="lower right")
+    a2.set_title("Rayleigh: el único que roza su umbral", fontsize=9)
+    for eje in (a1, a2):
+        _marcar_hitos(eje, con_texto=False)
+    fig.suptitle("Números adimensionales del solucionador", fontsize=10)
+    _guardar(fig, "fig_fen_adimensionales.pdf")
+
+
+# ------------------------------------------------------------------- campos
+
+def figura_campos(instantaneas):
+    """Corte vertical con el crisol incluido.
+
+    Enmascarar las paredes dejaba sólo la cavidad y escondía justo lo que
+    explica la historia térmica: el calor entra por el cuerpo del crisol. Aquí
+    se oculta únicamente el exterior del dominio y se marca el contorno del
+    lecho para poder situarlo.
+    """
+    tiempos = [30.0, 90.0, 120.0, 720.0]
+    fig, ejes = plt.subplots(2, len(tiempos), figsize=(7.6, 4.6))
+    fig.subplots_adjust(wspace=0.35, hspace=0.10)
+    for columna, objetivo in enumerate(tiempos):
+        t, campos = min(instantaneas, key=lambda e: abs(e[0] - objetivo))
+        etiquetas = np.asarray(campos["etiquetas"])
+        T = np.asarray(campos["T"]) - 273.15
+        CO = np.asarray(campos["c_especies"]["CO"])
+        j = T.shape[1] // 2
+        x = np.asarray(campos["x"])
+        z = np.asarray(campos["z"])
+        exterior = etiquetas == 0
+        lecho = (etiquetas == 3).astype(float)
+        # El solucionador no transporta especies dentro del metal: lo que queda
+        # en esas celdas no es una concentración, son residuos del término
+        # fuente. Pintarlos hacía que la escala del CO llegara a 665 mol/m³,
+        # sesenta veces la densidad molar del gas a 1 atm y 900 °C.
+        sin_gas = ~np.isin(etiquetas, (3, 4))
+
+        for fila, (campo, mapa, titulo, mascara) in enumerate((
+            (T, "inferno", "T [°C]", exterior),
+            (CO, "viridis", "CO [mol/m³]", sin_gas),
+        )):
+            eje = ejes[fila, columna]
+            corte = np.ma.masked_array(campo[:, j, :], mask=mascara[:, j, :])
+            imagen = eje.pcolormesh(x, z, corte.T, cmap=mapa, shading="nearest")
+            eje.contour(x, z, lecho[:, j, :].T, levels=[0.5],
+                        colors="#59f0ff", linewidths=0.8)
+            eje.set_aspect("equal")
+            eje.set_xticks([])
+            eje.grid(False)
+            if columna == 0:
+                eje.set_ylabel(f"{titulo}\nz [mm]", fontsize=8)
+            else:
+                eje.set_yticks([])
+            if fila == 0:
+                eje.set_title(f"t = {t:.0f} s", fontsize=9)
+            fig.colorbar(imagen, ax=eje, fraction=0.05, pad=0.04).ax.tick_params(labelsize=6)
+    fig.suptitle("Corte vertical por el eje: temperatura y CO "
+                 "(contorno azul = lecho)", fontsize=10)
+    _guardar(fig, "fig_fen_campos.pdf")
+
+
+def main() -> int:
+    directorio = sys.argv[1] if len(sys.argv) > 1 else None
+    datos = diagnosticos(directorio)
+    s = datos["serie"]
+    print("figuras de fenomenología:")
+    figura_termica(s)
+    figura_fases(s, datos["fases"])
+    figura_cascada_hierro(s)
+    figura_perdida(s)
+    figura_gases(s, datos["especies"])
+    figura_aglomerado(s)
+    figura_adimensionales(s, datos["Ra_critico"])
+    figura_campos(datos["instantaneas"])
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
