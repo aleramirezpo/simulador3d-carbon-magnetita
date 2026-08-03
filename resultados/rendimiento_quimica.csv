@@ -1,0 +1,13 @@
+tamano_malla,celdas,tipo_campo,estado,usar_tablas,celdas_por_s,segundos,aceleracion_vs_antes,nota
+8,512,uniforme,antes,false,209965.142218,0.002438500,1.000000,ruta escalar exacta
+8,512,uniforme,despues,true,205779.510550,0.002488100,0.980065,atajo exacto para campo uniforme
+8,512,heterogeneo,antes,false,2338.125883,0.218978800,1.000000,ruta escalar exacta
+8,512,heterogeneo,despues,true,29332.401422,0.017455100,12.545262,tabla vectorizada
+16,4096,uniforme,antes,false,924312.858111,0.004431400,1.000000,ruta escalar exacta
+16,4096,uniforme,despues,true,926445.308341,0.004421200,1.002307,atajo exacto para campo uniforme
+16,4096,heterogeneo,antes,false,2336.523768,1.753031600,1.000000,ruta escalar exacta
+16,4096,heterogeneo,despues,true,164286.860258,0.024932000,70.312514,tabla vectorizada
+32,32768,uniforme,antes,false,1572881.616317,0.020833100,1.000000,ruta escalar exacta
+32,32768,uniforme,despues,true,1553309.694840,0.021095600,0.987557,atajo exacto para campo uniforme
+32,32768,heterogeneo,antes,false,2380.699012,13.764024700,1.000000,ruta escalar exacta
+32,32768,heterogeneo,despues,true,481256.012395,0.068088500,202.149037,tabla vectorizada

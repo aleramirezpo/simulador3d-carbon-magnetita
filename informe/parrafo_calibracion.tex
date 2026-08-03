@@ -1,0 +1,23 @@
+El contraste de la curva de masa dejó al descubierto que el modelo
+devolatilizaba unos \SI{30}{\second} antes de tiempo. La primera hipótesis fue el
+acoplamiento térmico: se probó a frenar el calentamiento con un factor de vista
+del crisol dentro de la mufla, calibrado contra los ocho puntos. Con \num{0.46}
+la curva de masa encajaba, \emph{pero rompía la cronología del aglomerado}: a los
+\SI{90}{\second} el lecho quedaba a \SI{304}{\celsius}, fuera de la ventana
+plástica, cuando el ensayo ya lo ve hincharse.
+
+Ahí estaba la pista. Si a los \SI{90}{\second} el ensayo ha perdido el
+\qty{19}{\percent} de la masa \emph{y} se le ve hinchar, el carbón está dentro de
+la ventana plástica: el calentamiento del modelo sin frenar, que lo pone a
+\SI{491}{\celsius}, es el correcto.
+
+La causa real era la \textbf{compuerta de devolatilización}. La química la evalúa
+como $\mathrm{sigmoide}(T, T_0, \SI{40}{\celsius})$ con
+$T_0 = \SI{200}{\celsius}$, que no es un umbral sino el \emph{centro} de la
+sigmoide: con ese valor está abierta al \qty{98}{\percent} ya a
+\SI{360}{\celsius}, y el modelo suelta el volátil unos \SI{100}{\celsius} por
+debajo de donde lo suelta un carbón bituminoso. En el 0-D de
+\texttt{simulacion\_v3} no se notaba porque su historia térmica estaba calibrada
+y era mucho más lenta que la que resuelve el 3-D.
+
+Se adopta $T_0 = \SI{450}{\celsius}$, la temperatura de máxima velocidad de devolatilización de los bituminosos, y no un ajuste punto a punto. El factor de vista queda en \num{1.00}: \textbf{el acoplamiento térmico no lleva ningún parámetro calibrado}.

@@ -1,0 +1,28 @@
+# Detritos de pytest. Se acumulaban 311 MB en el árbol: basetemp mal escritos
+# (`interfazpytest-final`), directorios `pytest-of-<usuario>` y la caché.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+pytest-of-*/
+.pytest_tmp*/
+_tmp_pytest*/
+_tmp_pip/
+
+# Salidas del solucionador: se regeneran con `python correr_simulacion.py` y
+# pesan decenas de MB. Los CSV y PNG de verificación sí se conservan porque son
+# el respaldo de las tablas del CONTEXTO.
+resultados/simulacion*/
+resultados/convergencia_media/
+resultados/*.log
+
+# `sitio/` SÍ se versiona, aunque sea un artefacto generado: es lo que GitHub
+# Pages publica, y no hay forma de reconstruirlo en el servidor de Pages porque
+# depende de los NPZ del solucionador, que no se versionan. Se regenera con
+# `python -m interfaz.exportar_estatico --salida sitio --limpiar`.
+
+# Intermedios de LaTeX
+informe/*.aux
+informe/*.log
+informe/*.out
+informe/*.toc
+informe/_*.png

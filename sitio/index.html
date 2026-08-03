@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Simulador 3D de transporte y reacción</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <header class="cabecera">
+    <div class="marca">
+      <span class="marca-icono" aria-hidden="true">3D</span>
+      <div>
+        <h1>Transporte y reacción en crisol</h1>
+        <p>Momentum · calor · masa · química</p>
+      </div>
+    </div>
+    <div class="avisos">
+      <span class="insignia sintetico">Resultados del solucionador</span>
+      <span class="insignia prediccion">Predicción del modelo — sin validación experimental</span>
+    </div>
+  </header>
+
+  <main class="aplicacion">
+    <aside class="panel panel-izquierdo" aria-label="Controles de visualización">
+      <section>
+        <h2>Campo volumétrico</h2>
+        <label for="campo">Variable activa</label>
+        <select id="campo">
+          <optgroup label="Momentum">
+            <option value="velocidad">Magnitud de velocidad</option>
+            <option value="P">Presión</option>
+          </optgroup>
+          <optgroup label="Calor">
+            <option value="T" selected>Temperatura</option>
+          </optgroup>
+          <optgroup label="Masa">
+            <option value="concentracion">Concentración de especie</option>
+            <option value="dominancia">Dominio advectivo / difusivo</option>
+          </optgroup>
+          <optgroup label="Reacción">
+            <option value="conversion">Conversión de Fe₂O₃</option>
+            <option value="reduccion">Grado de reducción local</option>
+            <option value="cohesion">Cohesión / aglomerado</option>
+            <option value="eps">Porosidad</option>
+          </optgroup>
+        </select>
+        <label for="especie">Especie gaseosa</label>
+        <select id="especie">
+          <option>CO</option><option>CO2</option><option>H2</option><option>H2O</option>
+          <option>CH4</option><option>N2</option><option>O2</option>
+        </select>
+        <div class="fila-doble">
+          <div>
+            <label for="modo-volumen">Render</label>
+            <select id="modo-volumen">
+              <option value="raymarch" selected>Ray marching 3D</option>
+              <option value="planos">Planos apilados</option>
+            </select>
+          </div>
+          <div>
+            <label for="calidad-volumen">Calidad</label>
+            <select id="calidad-volumen">
+              <option value="72">Baja · 72 pasos</option>
+              <option value="112" selected>Media · 112 pasos</option>
+              <option value="160">Alta · 160 pasos</option>
+            </select>
+          </div>
+        </div>
+        <p id="nota-render" class="nota-tecnica">Data3DTexture + ShaderMaterial: integra el campo a través del volumen.</p>
+      </section>
+
+      <section class="panel-particulas">
+        <div class="titulo-con-ayuda"><h2>Representación del lecho</h2><span>polvo → aglomerado</span></div>
+        <label for="modo-representacion">Vista</label>
+        <select id="modo-representacion">
+          <option value="particulas" selected>Partículas discretas</option>
+          <option value="campos">Campos continuos</option>
+          <option value="superpuesta">Partículas + campos</option>
+        </select>
+        <p id="resumen-particulas" class="resumen-particulas">50.052 esferas representan 222.824 partículas (factor 4,452×)</p>
+        <dl class="datos-particulas">
+          <div><dt>Carbón : magnetita</dt><dd>11,9 : 1 en número</dd></div>
+          <div><dt>Muestra gráfica</dt><dd>46.172 C + 3.880 Fe₃O₄</dd></div>
+          <div><dt>Tamaño nominal</dt><dd>100–250 µm · malla 60</dd></div>
+          <div><dt>Porosidad inicial</dt><dd>0,54</dd></div>
+          <div><dt>Radio de render</dt><dd id="factor-radio-render">2,40× · exageración visual</dd></div>
+        </dl>
+        <p class="nota-tecnica">Distribución uniforme porque no hay d10/d50/d90 medidos. El radio se amplía sólo para legibilidad; los tamaños nominales y el submuestreo representativo no cambian.</p>
+      </section>
+
+      <section class="panel-fases">
+        <div class="titulo-con-ayuda"><h2>Fases minerales</h2><span id="fases-activas">—</span></div>
+        <label class="interruptor"><input id="colorear-fases" type="checkbox" checked> Colorear partículas por fase</label>
+        <label class="interruptor"><input id="luz-neutra" type="checkbox"> Luz neutra <span class="pista">(para comparar fases en caliente)</span></label>
+        <ul id="leyenda-fases" class="leyenda-fases" aria-label="Fases presentes en el lecho"></ul>
+        <dl class="datos-particulas datos-hinchamiento">
+          <div><dt>Hinchamiento</dt><dd id="valor-hinchamiento">todavía no hincha</dd></div>
+          <div><dt>Índice IH del carbón</dt><dd>8 · ASTM D720</dd></div>
+          <div><dt>Atenuación por magnetita</dt><dd id="valor-atenuacion">—</dd></div>
+        </dl>
+        <p id="nota-fases" class="nota-tecnica">Color aproximado al aspecto real de cada mineral. Porcentaje en volumen sobre el sólido del lecho.</p>
+      </section>
+
+      <section>
+        <h2>Capas de transporte</h2>
+        <div class="grupo-capas">
+          <label class="capa momentum"><input id="capa-flechas" type="checkbox" checked> Flechas de velocidad</label>
+          <label class="capa momentum"><input id="capa-lineas" type="checkbox" checked> Líneas de corriente</label>
+          <label class="capa calor"><input id="capa-calor" type="checkbox" checked> Vectores de flujo de calor</label>
+          <label class="capa calor"><input id="capa-radiacion" type="checkbox" checked> Radiación mufla → crisol</label>
+          <label class="capa calor"><input id="capa-frente-termico" type="checkbox" checked> Frente térmico · isoterma</label>
+          <label class="capa masa"><input id="capa-advectivo" type="checkbox" checked> Flujo advectivo de masa</label>
+          <label class="capa masa"><input id="capa-difusivo" type="checkbox" checked> Flujo difusivo de masa</label>
+          <label class="capa reaccion"><input id="capa-aglomerado" type="checkbox" checked> Aglomerado reactivo</label>
+        </div>
+        <div class="clave-transportes">
+          <span><i class="punto momentum"></i>Momentum</span>
+          <span><i class="punto calor"></i>Calor</span>
+          <span><i class="punto masa"></i>Masa</span>
+          <span><i class="punto reaccion"></i>Reacción</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Escala de color</h2>
+        <div class="fila-doble">
+          <div><label for="paleta">Paleta</label><select id="paleta"><option value="cividis">Cividis</option><option value="viridis">Viridis</option><option value="divergente">Azul–naranja</option></select></div>
+          <div><label for="tipo-escala">Escala</label><select id="tipo-escala"><option value="lineal">Lineal</option><option value="log">Logarítmica</option></select></div>
+        </div>
+        <label class="interruptor"><input id="limites-auto" type="checkbox" checked> Límites automáticos</label>
+        <div class="fila-doble">
+          <div><label for="limite-min">Mínimo</label><input id="limite-min" type="number" step="any" disabled></div>
+          <div><label for="limite-max">Máximo</label><input id="limite-max" type="number" step="any" disabled></div>
+        </div>
+        <label for="opacidad">Densidad óptica <output id="valor-opacidad">52 %</output></label>
+        <input id="opacidad" type="range" min="8" max="100" value="52">
+      </section>
+
+      <section>
+        <div class="titulo-con-ayuda"><h2>Planos de recorte</h2><span>arrastrables</span></div>
+        <div class="controles-corte">
+          <div class="corte-eje">
+            <label><input id="activar-corte-x" type="checkbox"> X</label>
+            <input id="corte-x" type="range" min="-15.3" max="15.3" step="0.1" value="0">
+            <output id="valor-corte-x">0,0 mm</output>
+          </div>
+          <div class="corte-eje">
+            <label><input id="activar-corte-y" type="checkbox"> Y</label>
+            <input id="corte-y" type="range" min="-15.3" max="15.3" step="0.1" value="15.3">
+            <output id="valor-corte-y">15,3 mm</output>
+          </div>
+          <div class="corte-eje">
+            <label><input id="activar-corte-z" type="checkbox"> Z</label>
+            <input id="corte-z" type="range" min="0" max="34" step="0.1" value="34">
+            <output id="valor-corte-z">34,0 mm</output>
+          </div>
+        </div>
+        <label class="interruptor"><input id="mostrar-planos" type="checkbox"> Mostrar guías de los planos</label>
+      </section>
+
+      <section>
+        <h2>Isosuperficie</h2>
+        <label class="interruptor"><input id="activar-iso" type="checkbox" checked> Mostrar umbral</label>
+        <label for="campo-iso">Tipo</label>
+        <select id="campo-iso"><option value="T">Isoterma</option><option value="conversion">Frente de reacción</option><option value="cohesion">Aglomerado</option></select>
+        <label for="umbral-iso">Umbral <output id="valor-iso">900 K</output></label>
+        <input id="umbral-iso" type="range" min="300" max="1350" step="5" value="900">
+      </section>
+    </aside>
+
+    <section class="zona-central" aria-label="Vista tridimensional">
+      <div class="barra-vista">
+        <div class="botones-vista" role="group" aria-label="Vistas predefinidas">
+          <button data-vista="alzado">Alzado</button><button data-vista="planta">Planta</button><button data-vista="iso" class="activo">Isométrica</button><button data-vista="lecho">Detalle del lecho</button><button id="encuadrar">Encuadrar</button>
+        </div>
+        <div class="acciones-vista">
+          <button id="trazar-linea">Trazar perfil</button>
+          <button id="exportar-png">Exportar PNG</button>
+        </div>
+      </div>
+      <div id="visor" class="visor">
+        <canvas id="lienzo-3d" tabindex="0" aria-label="Crisol tridimensional interactivo"></canvas>
+        <canvas id="etiquetas-3d" aria-hidden="true"></canvas>
+        <div id="mensaje-carga" class="mensaje-carga oculto" hidden><span></span>Cargando instantánea…</div>
+        <div id="precarga-serie" class="precarga-serie oculto" role="status" aria-live="polite" hidden>
+          <strong id="texto-precarga">Precargando 0 / 25</strong>
+          <progress id="progreso-precarga" max="25" value="0"></progress>
+          <small id="detalle-precarga">Campos Float32 + trayectorias</small>
+        </div>
+        <div id="instruccion-perfil" class="instruccion-perfil oculto">Seleccione dos puntos sobre el crisol</div>
+        <div class="aviso-visor" role="note"><strong>PREDICCIÓN · RESULTADOS DEL SOLUCIONADOR</strong><span>Sin validación experimental · no usar como medición</span></div>
+        <div id="aviso-luz" class="aviso-luz oculto" role="note">LUZ NEUTRA · el crisol a 900 °C emite en naranja; aquí se apaga para poder comparar el color de cada fase</div>
+        <div class="estado-termico" aria-label="Cadena de transferencia térmica">
+          <strong>MUFLA <span id="temperatura-mufla">900 °C</span></strong>
+          <span>ε = 0,8 → pared Ni-Cr <b id="temperatura-pared">—</b></span>
+          <span>q″ radiativo <b id="flujo-radiativo">—</b> → fondo + laterales</span>
+        </div>
+        <div class="leyenda" aria-label="Escala del campo">
+          <strong id="leyenda-campo">Temperatura</strong>
+          <div id="barra-color" class="barra-color"></div>
+          <div><span id="leyenda-min">—</span><span id="leyenda-max">—</span></div>
+          <small id="leyenda-unidad">K</small>
+        </div>
+        <div class="orientacion" aria-hidden="true"><span class="eje-z">Z</span><span class="eje-x">X</span><span class="eje-y">Y</span></div>
+        <div class="estado-vista">
+          <span id="estado-fotograma">t = 0,0 s</span>
+          <span id="estado-malla">— vóxeles</span>
+        </div>
+      </div>
+      <div class="linea-tiempo">
+        <button id="retroceder" aria-label="Fotograma anterior">◀</button>
+        <button id="reproducir" class="principal" aria-label="Reproducir">▶</button>
+        <button id="avanzar" aria-label="Fotograma siguiente">▶|</button>
+        <input id="tiempo" type="range" min="0" max="24" value="0" aria-label="Línea de tiempo">
+        <output id="tiempo-actual">0,0 s</output>
+        <label for="velocidad-reproduccion">Velocidad</label>
+        <select id="velocidad-reproduccion"><option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+      </div>
+    </section>
+
+    <aside class="panel panel-derecho" aria-label="Resultados acoplados">
+      <section>
+        <div class="titulo-con-ayuda"><h2>Números adimensionales</h2><span id="origen-numeros" title="Calculados sobre la instantánea activa">campo sintético</span></div>
+        <div class="numeros">
+          <article><span>Re</span><strong id="numero-re">—</strong><small id="regimen-re">Momentum sintético</small><em>Ensayo: Re<sub>p</sub> = 0,053</em></article>
+          <article><span>Ra</span><strong id="numero-ra">—</strong><small id="regimen-ra">Convección sintética</small><em>Ensayo: Ra = 188</em></article>
+          <article><span>Pe</span><strong id="numero-pe">—</strong><small id="regimen-pe">Calor sintético</small><em>Ensayo: Pe<sub>lecho</sub> = 1,01</em></article>
+          <article><span>Da</span><strong id="numero-da">—</strong><small id="regimen-da">Reacción sintética</small><em>Sin referencia medida</em></article>
+        </div>
+      </section>
+
+      <section class="grafica-seccion">
+        <div class="titulo-con-ayuda"><h2>Evolución integrada</h2><span id="punto-serie">t = 0 s</span></div>
+        <div class="leyenda-grafica"><span class="temperatura">T media</span><span class="conversion">Conversión</span><span class="cohesion">Cohesión</span></div>
+        <canvas id="grafica-serie" width="340" height="190" aria-label="Serie temporal integrada"></canvas>
+      </section>
+
+      <section class="grafica-seccion">
+        <div class="titulo-con-ayuda"><h2>Perfil trazado en 3D</h2><span id="longitud-perfil">Sin línea</span></div>
+        <canvas id="grafica-perfil" width="340" height="180" aria-label="Perfil a lo largo de una línea"></canvas>
+        <p id="ayuda-perfil">Pulse «Trazar perfil» y marque dos puntos en la vista.</p>
+      </section>
+
+      <section>
+        <div class="titulo-con-ayuda"><h2>Lectura local por Raycaster</h2><span id="estado-sonda">Pulse el volumen</span></div>
+        <dl class="lectura-local">
+          <div><dt>Campo</dt><dd id="lectura-campo">Temperatura</dd></div>
+          <div><dt>Rango</dt><dd id="lectura-rango">—</dd></div>
+          <div><dt>Celda</dt><dd id="lectura-coordenadas">—</dd></div>
+          <div><dt>Temperatura</dt><dd id="lectura-temperatura">—</dd></div>
+          <div><dt>Presión</dt><dd id="lectura-presion">—</dd></div>
+          <div><dt>Velocidad</dt><dd id="lectura-velocidad">—</dd></div>
+          <div><dt>Vector u</dt><dd id="lectura-vector-velocidad">—</dd></div>
+          <div><dt>Flujo de calor</dt><dd id="lectura-flujo-calor">—</dd></div>
+          <div><dt>Porosidad</dt><dd id="lectura-porosidad">—</dd></div>
+          <div><dt>Conversión</dt><dd id="lectura-conversion">—</dd></div>
+          <div><dt>Reducción</dt><dd id="lectura-reduccion">—</dd></div>
+          <div><dt>Cohesión</dt><dd id="lectura-cohesion">—</dd></div>
+          <div><dt>Flujo masa A / D</dt><dd id="lectura-flujos-masa">—</dd></div>
+          <div class="lectura-especies"><dt>Especies</dt><dd id="lectura-especies">—</dd></div>
+          <div class="lectura-especies"><dt>Fases sólidas</dt><dd id="lectura-solidos">—</dd></div>
+          <div><dt>Fuente</dt><dd>Demostración analítica</dd></div>
+          <div><dt>Validación</dt><dd class="no-validado">Predicción no validada</dd></div>
+        </dl>
+        <button id="exportar-csv" class="ancho">Exportar serie temporal a CSV</button>
+      </section>
+    </aside>
+  </main>
+
+  <footer>
+    <span id="estado-aplicacion">Preparando visualización local…</span>
+    <span>Arrastre para orbitar · rueda para zoom · botón derecho para desplazar · clic para inspeccionar</span>
+  </footer>
+  <script>window.SIMULADOR3D_ESTATICO = "datos";</script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

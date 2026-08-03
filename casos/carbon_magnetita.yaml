@@ -1,0 +1,167 @@
+nombre: carbon_magnetita
+descripcion: Ensayo de 1,00 g de carbón y concentrado de titanomagnetita en crisol Ni-Cr
+
+geometria:
+  tipo: crisol_perfil
+  perfil: nucleo.perfil.PERFIL_ENSAYO
+  perfil_mm:
+    - [0.0, 12.5]
+    - [18.0, 14.0]
+    - [21.0, 15.3]
+    - [23.0, 14.75]
+    - [32.0, 14.75]
+  espesor_pared_mm: 1.1
+  espesor_fondo_mm: 2.0
+  espesor_tapa_mm: 2.0
+  con_tapa: true
+  densidad_crisol_kg_m3: 8400.0
+
+malla:
+  preajuste_predeterminado: gruesa
+  preajustes:
+    gruesa: {dx_mm: 2.0, dz_mm: 1.0}
+    media: {dx_mm: 1.0, dz_mm: 0.5}
+    fina: {dx_mm: 0.5, dz_mm: 0.25}
+  submuestreo_fracciones: 4
+
+fisica:
+  - momentum
+  - energia
+  - especies
+  - quimica
+  - cohesion
+
+especies: [CO, CO2, H2, H2O, CH4, N2, O2]
+
+condiciones_frontera:
+  mufla:
+    tipo: radiacion
+    curva: ../../simulacion_v3/datos/curvas t vs T.xlsx
+    hoja: Hoja1
+    estadistico: mediana
+    unidad_tiempo: s
+    unidad_temperatura: degC
+    emisividad: 0.80
+    # Factor de vista del crisol dentro de la mufla: 1,0 es vista plena. Se
+    # probo bajarlo para retrasar el calentamiento y cuadrar la curva de perdida
+    # de masa, pero el desajuste no estaba ahi (vease quimica.T_devolatilizacion_C).
+    factor_vista: 1.0
+  tapa:
+    tipo: venteo
+    conductancia: calculada
+    presion_exterior_Pa: 101325.0
+    modelo: sumidero_masa_junta_tapa
+    caudal_referencia_cm3_s: 19.0
+    descripcion: La fuente neta se compensa en la corona de gas bajo la junta; el inventario saliente se contabiliza.
+
+propiedades_termicas:
+  pared_nicr:
+    conductividad_W_m_K: 16.0
+    densidad_kg_m3: 8400.0
+    calor_especifico_J_kg_K: 500.0
+    fuente: ASM Handbook, aleacion Ni-Cr a temperatura elevada; valores representativos en SI.
+  lecho:
+    # Calor de pirolisis, ENDOTERMICO, por kg de volatil liberado. La
+    # devolatilizacion consume energia y el modelo no lo contabilizaba. Valor
+    # medio de lo reportado para carbones bituminosos (van Krevelen 1993;
+    # Merrick, Fuel 62 (1983) 540): CALIBRABLE en 200-1400 kJ/kg de volatil.
+    calor_pirolisis_kJ_kg_volatil: 500.0
+    conductividad_efectiva_inicial_W_m_K: 1.2
+    conductividad_efectiva_reducida_W_m_K: 0.6
+    calor_especifico_carbon_J_kg_K: 1000.0
+    calor_especifico_concentrado_J_kg_K: 750.0
+    modelo_porosidad: mezcla volumetrica solido-gas calibrada a la porosidad inicial
+    fuente: Kiamehr et al.; intervalo 1,2 a 0,6 W/m/K durante la reduccion del lecho.
+  gas:
+    temperatura_referencia_K: 1173.15
+    presion_referencia_Pa: 101325.0
+    conductividad_W_m_K: 0.075
+    calor_especifico_J_kg_K: 1150.0
+    modelo_densidad: gas ideal rho=P*M/(R*T)
+    fuente: NIST Chemistry WebBook; propiedades representativas de mezcla gaseosa a 900 degC.
+  difusion_especies:
+    temperatura_referencia_K: 1173.15
+    presion_referencia_Pa: 101325.0
+    exponente_temperatura: 1.75
+    exponente_tortuosidad_lecho: 1.5
+    D_referencia_m2_s:
+      CO: 1.55e-4
+      CO2: 1.30e-4
+      H2: 4.50e-4
+      H2O: 1.75e-4
+      CH4: 1.45e-4
+      N2: 1.50e-4
+      O2: 1.55e-4
+    fuente: Fuller, Schettler y Giddings, Industrial and Engineering Chemistry 58 (1966), 18-27; D proporcional a T^1.75/P.
+
+carga:
+  masa_carbon_g: 0.75
+  masa_concentrado_g: 0.25
+  porosidad_inicial: 0.54
+  diametro_particula_m: 0.000175
+  densidad_carbon_g_cm3: 1.30
+  densidad_concentrado_g_cm3: 5.17
+  carbon:
+    base_analisis_proximo: humedad_residual
+    humedad_residual_pct: 0.90
+    cenizas_pct: 9.86
+    materia_volatil_pct: 35.30
+    carbono_fijo_pct: 53.94
+  mineralogia_rietveld:
+    magnetita: {formula: Fe3O4, fraccion_masica_pct: 70.7, densidad_g_cm3: 5.17}
+    ilmenita: {formula: FeTiO3, fraccion_masica_pct: 17.3, densidad_g_cm3: 4.72}
+    hematita: {formula: Fe2O3, fraccion_masica_pct: 10.9, densidad_g_cm3: 5.26}
+    cuarzo: {formula: SiO2, fraccion_masica_pct: 1.1, densidad_g_cm3: 2.65}
+
+estado_inicial:
+  temperatura_K: 298.15
+  presion_Pa: 101325.0
+  gas_fracciones_molares: {N2: 0.79, O2: 0.21}
+
+medio:
+  coeficiente_forchheimer: 0.55
+  expansion_termica_1_K: 0.0008528780
+  activar_boyancia: false
+  justificacion_boyancia: Ra del ensayo por debajo del umbral convectivo; el flujo resuelto es el inducido por devolatilizacion y venteo.
+  viscosidad_referencia_Pa_s: 0.00001846
+  permeabilidad_solido_m2: 1.0e-20
+
+quimica:
+  usar_tablas: true
+  dt_quimica_max_s: 0.05
+  max_subpasos_quimica: 256
+  # Temperatura del 50 % de la compuerta de devolatilizacion, en degC.
+  #
+  # `simulacion_v3` usa 200 degC, que es donde asoman las primeras trazas de gas.
+  # Pero la compuerta es una sigmoide de 40 degC de ancho CENTRADA en ese valor:
+  # con 200 esta abierta al 98 % ya a 360 degC, y el modelo suelta todo el
+  # volatil unos 100 degC por debajo de donde lo suelta un carbon bituminoso.
+  # El maximo de velocidad de devolatilizacion de un carbon coquizable esta hacia
+  # 430-470 degC (van Krevelen 1993, cap. de carbonizacion; curvas de TGA de
+  # bituminosos). Con 450 la curva de perdida de masa del modelo cae sobre los
+  # ocho puntos medidos SIN tocar el acoplamiento termico.
+  #
+  # En v3 el desfase quedaba compensado porque su historia termica 0-D estaba
+  # calibrada y era mucho mas lenta que la que resuelve el 3-D.
+  T_devolatilizacion_C: 450.0
+  # Fraccion de la materia volatil del analisis proximo que llega a salir en
+  # estas condiciones. El 3-D venia usando 1,0 (todo), pero el analisis proximo
+  # se hace a 950 degC durante 7 min en crisol tapado y el ensayo es otra cosa:
+  # la meseta medida (25,20 % a 360 y 720 s) implica que sale el ~87 %.
+  # `simulacion_v3` ya trata este parametro como ajustable, con rango 0,70-1,00
+  # y valor de arranque 0,88, que es el que se adopta.
+  f_vol_liberable: 0.88
+
+tiempo:
+  t_final_s: 720.0
+  dt_inicial_s: 0.05
+  dt_min_s: 1.0e-9
+  dt_max_s: 0.5
+  adaptativo: true
+  cfl: 0.4
+
+resultados:
+  intervalo_guardado_s: 5.0
+  fuente: solucionador 3D acoplado con quimica simulacion_v3
+  datos_sinteticos: false
+  validacion_global: sin validacion experimental

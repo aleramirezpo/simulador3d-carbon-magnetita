@@ -1,0 +1,10 @@
+# Los fotogramas exportados son Float32 crudo (contrato S3DF). Si git los
+# tomara por texto, la conversión CRLF de Windows insertaría un 0x0D por cada
+# 0x0A del flujo y corrompería los campos en silencio: el sitio publicado
+# mostraría números distintos de los que calculó el solucionador, sin ningún
+# error visible. Se marcan explícitamente como binarios.
+*.bin binary
+*.npz binary
+*.pdf binary
+*.png binary
+*.xlsx binary

@@ -1,0 +1,12 @@
+{
+  "corrida": "simulacion_720s",
+  "n_fotogramas": 54,
+  "forma": [
+    16,
+    16,
+    35
+  ],
+  "t_final_s": 265.3866009084235,
+  "MB_fotogramas": 58.8,
+  "MB_sitio": 63.5
+}
