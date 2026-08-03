@@ -1,0 +1,45 @@
+# Publica el visor 3-D en GitHub Pages.
+#
+# Sólo sube `sitio/`, que ya viene generado en el repositorio: no se puede
+# construir aquí porque el exportador necesita los NPZ del solucionador, que
+# pesan cientos de MB y no se versionan. Para actualizar el visor hay que
+# regenerarlo en local y hacer commit:
+#
+#     python -m interfaz.exportar_estatico --salida sitio --limpiar
+#
+# Se publica desde un flujo de trabajo, y no desde una carpeta de la rama,
+# porque Pages sólo admite `/` o `/docs` como raíz y `docs/` ya es la
+# documentación del proyecto.
+name: Publicar el visor 3-D
+
+on:
+  push:
+    branches: [main]
+    paths: ['sitio/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Una publicación a la vez; no se cancela la que esté en curso para no dejar
+# el sitio a medio subir.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: sitio
+      - id: despliegue
+        uses: actions/deploy-pages@v4
