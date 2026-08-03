@@ -1,12 +1,14 @@
 {
-  "corrida": "simulacion_720s",
-  "n_fotogramas": 54,
+  "corrida": "simulacion_720s_completa",
+  "n_fotogramas": 145,
   "forma": [
     16,
     16,
     35
   ],
-  "t_final_s": 265.3866009084235,
-  "MB_fotogramas": 58.8,
-  "MB_sitio": 63.5
+  "t_final_s": 720.0,
+  "MB_fotogramas": 157.9,
+  "MB_sitio": 167.3,
+  "MB_descarga_gzip": 22.6,
+  "KB_por_fotograma_gzip": 155.9
 }

@@ -9,8 +9,6 @@ para detectar una regresión de la física.
 
 from __future__ import annotations
 
-import glob
-import os
 import sys
 from pathlib import Path
 
@@ -34,16 +32,34 @@ def _tabla_experimental():
 
 
 def _serie_vigente():
-    directorio = Path(__file__).resolve().parents[1] / "resultados" / "simulacion_720s"
-    rutas = sorted(glob.glob(f"{directorio}/*.npz")) if directorio.is_dir() else []
+    """La misma corrida que abre la interfaz, con el mismo recorte.
+
+    Antes esta función fijaba a mano el directorio `simulacion_720s` y
+    reimplementaba por su cuenta el descarte de los NPZ de corridas anteriores.
+    Era la TERCERA copia de ese criterio, y quedó anclada a una carpeta donde se
+    había relanzado la simulación: la serie vigente allí se detiene a los 265 s,
+    así que estas pruebas dejaron de ver la cola de la curva —la meseta que
+    comprueban— y fallaban por falta de datos aunque en `resultados/` hubiera
+    una corrida completa de 720 s.
+
+    Se pasa a `directorio_predeterminado`, que ya elige la corrida más avanzada,
+    y al recorte compartido. Así la física que se contrasta aquí es exactamente
+    la que se publica en el visor, y no hay un cuarto criterio que se desvíe.
+    """
+    from interfaz.app import _recortar_a_la_corrida_vigente, directorio_predeterminado
+
+    raiz = Path(__file__).resolve().parents[1] / "resultados"
+    directorio = directorio_predeterminado(raiz)
+    rutas = sorted(directorio.glob("*.npz")) if directorio.is_dir() else []
     if not rutas:
-        pytest.skip("no hay corrida en resultados/simulacion_720s")
-    cargadas = [(r, cargar_instantanea(r)) for r in rutas]
-    inicios = [r for r, c in cargadas if abs(float(c["t"])) <= 1.0e-12]
-    if inicios:
-        corte = max(os.stat(r).st_mtime_ns for r in inicios)
-        cargadas = [(r, c) for r, c in cargadas if os.stat(r).st_mtime_ns >= corte]
-    return sorted(((float(c["t"]), c) for _, c in cargadas), key=lambda e: e[0])
+        pytest.skip(f"no hay ninguna corrida en {raiz}")
+    cargadas = [(ruta, cargar_instantanea(ruta)) for ruta in rutas]
+    vigentes = _recortar_a_la_corrida_vigente(
+        cargadas,
+        lambda par: par[1]["t"],
+        lambda par: par[0].stat().st_mtime_ns,
+    )
+    return sorted(((float(c["t"]), c) for _, c in vigentes), key=lambda e: e[0])
 
 
 def _masa_solida_g(campos, volumen_celda_m3):
