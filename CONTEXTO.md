@@ -1356,3 +1356,65 @@ dirección y el tamaño del efecto, no la tercera cifra.
 
 **Y medirlo cuesta poco**: dos aglomerados del mismo tiempo de mufla, uno
 enfriado tapado y otro destapado, y un VSM.
+
+### 19.12 METODOLOGÍA EN EL INFORME, Y LAS TABLAS EN PORCENTAJE
+
+Dos huecos que señaló el laboratorio y que eran reales.
+
+**1. Las tablas por tiempo ahora van en % en masa**, no sólo en mg, y llevan la
+masa total y la porosidad en la misma fila. Es lo que hace falta para responder
+«¿qué % de qué fase quedó?» sin sacar la calculadora:
+
+| t (s) | masa (mg) | ε | volátil | char | ceniza | Fe₂O₃ | Fe₃O₄ | FeO | Fe | FeTiO₃ |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 993,2 | 0,540 | 26,65 | 40,73 | 7,45 | 3,05 | 19,34 | 0 | 0 | 2,78 |
+| 90 | 759,5 | 0,677 | 4,33 | 53,26 | 9,74 | 0 | 27,70 | 1,31 | 0,02 | 3,64 |
+| 720 | 754,7 | 0,678 | 4,21 | 53,60 | 9,80 | 0 | 23,68 | 4,32 | 0,73 | 3,66 |
+
+Y la de enfriado da los mismos % con las dos cotas del enfriado. A 720 s:
+Fe₃O₄ 23,68 % (temple) → 27,16 % (lento), FeO 4,32 % → 0, Fe 0,73 % → 1,57 %.
+
+**2. Faltaba la metodología.** El informe pasaba de «con qué se contrasta» a los
+resultados sin documentar las ecuaciones. Ahora hay una sección
+`informe/metodologia.tex` con:
+
+- las ecuaciones **tal como están implementadas**, no la forma de libro: la de
+  momentum Darcy–Brinkman–Forchheimer con la proyección de Chorin en sus tres
+  pasos y la nota de compatibilidad del Neumann; la de energía en forma
+  **advectiva** y con el coeficiente (ρcp)_gas/(ρcp)_ef, que son las dos
+  correcciones de §14; la de especies con Fuller y tortuosidad;
+- la ley de velocidad con la **afinidad** `1 − Q/K_eq`, que es la pieza central:
+  la conversión parcial emerge de ahí y no de un α_max impuesto;
+- la tabla de parámetros cinéticos (A, Ea y fuente) de las nueve reacciones;
+- el esquema de **Patankar** y por qué (positividad incondicional);
+- los cierres: Kozeny–Carman, mezcla volumétrica, gas ideal, y la porosidad viva
+  con su fórmula;
+- el numérico: Strang, media **armónica de conductividades**, limitador
+  **superbee** de Roe–Sweby con su fórmula, la tabla de ganancia del tratamiento
+  implícito (×5474) y BiCGSTAB+ILU sobre celdas activas;
+- geometría, malla anisótropa y el contrato de salida.
+
+**3. Y una sección que responde a «¿todo eso se resuelve de verdad en 3-D?»**
+con la tabla de cada término y su **máximo medido sobre las 145 instantáneas**,
+no valores nominales:
+
+| Término | máximo medido | ¿domina? |
+|---|---|---|
+| Advección de calor | Pe_T = 3,93 | sólo en el pico |
+| Advección de especies | Pe_m = 5,88 | sólo en el pico |
+| Advección de momentum | Re_celda = 4,51 | no |
+| Forchheimer | Re_p = 0,394 | no |
+| **Boyancia** | **Ra = 1862 vs Ra_c = 1708** | **⚠ véase abajo** |
+| Gasificación del char | Da = 1,6×10⁻¹⁷ | no |
+
+> ⚠ **Escribir esa tabla destapó una incoherencia.** El caso desactiva la
+> boyancia con la justificación de que «Ra está por debajo del umbral
+> convectivo», y la corrida da Ra = 1862 en el pico, **por encima** del crítico
+> 1708. El término está implementado y se activa con una línea del YAML; que no
+> se haya hecho es una decisión pendiente, no un resultado. Queda declarado en
+> el informe en vez de repetir la justificación que la propia corrida
+> contradice.
+
+El informe también dice ahora, con números, qué aporta el 3-D que un 0-D no
+puede: los gradientes dentro del lecho, el crecimiento del aglomerado en vez de
+su aparición de golpe, la geometría real del crisol y el campo de composición.

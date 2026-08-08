@@ -200,13 +200,21 @@ def tabla_fases_por_tiempo(datos):
     filas = []
     for objetivo in TIEMPOS_EXTRACCION:
         i = _indice_mas_cercano(s, objetivo)
-        celdas = " & ".join(num(1000.0 * s[f"m_{c}"][i], 2) for c, _ in presentes)
-        filas.append(rf"    {num(s['t'][i], 0)} & {celdas} \\")
+        total = sum(s[f"m_{c}"][i] for c, _ in presentes)
+        celdas = " & ".join(
+            num(100.0 * s[f"m_{c}"][i] / total, 2) if total > 0 else "---"
+            for c, _ in presentes
+        )
+        filas.append(
+            rf"    {num(s['t'][i], 0)} & {num(1000.0 * total, 1)} & "
+            rf"{num(s['eps_media'][i], 3)} & {celdas} \\"
+        )
     cabecera = " & ".join(etiqueta for _, etiqueta in presentes)
     escribir("tabla_fen_fases_tiempo.tex", (
-        r"\begin{tabular}{r" + "r" * len(presentes) + "}\n"
+        r"\begin{tabular}{rrr" + "r" * len(presentes) + "}\n"
         r"    \hline" "\n"
-        rf"    $t$ [s] & {cabecera} \\" "\n"
+        rf"     &  &  & \multicolumn{{{len(presentes)}}}{{c}}{{\% en masa del sólido}} \\" "\n"
+        rf"    $t$ [s] & masa [mg] & $\varepsilon$ & {cabecera} \\" "\n"
         r"    \hline" "\n"
         + "\n".join(filas) + "\n"
         r"    \hline" "\n"
@@ -230,28 +238,34 @@ def tabla_enfriado(datos):
     macro("datFraccionEutectoide", num(100.0 * fraccion, 0))
 
     MW_FeO, MW_Fe3O4, MW_Fe = 71.844, 231.531, 55.845
+    fases = ("volatil", "C", "ceniza", "Fe2O3", "Fe3O4", "FeO", "Fe", "FeTiO3")
     filas = []
     for objetivo in TIEMPOS_EXTRACCION:
         i = _indice_mas_cercano(s, objetivo)
+        # La masa NO cambia al enfriar: el eutectoide es una reorganización en
+        # estado sólido, así que el mismo total sirve para las dos cotas.
+        total = sum(s[f"m_{f}"][i] for f in fases if f"m_{f}" in s)
         Fe3O4 = 1000.0 * s["m_Fe3O4"][i]
         FeO = 1000.0 * s["m_FeO"][i]
         Fe = 1000.0 * s["m_Fe"][i]
-        # 4 FeO -> Fe3O4 + Fe, con toda la wüstita transformada.
-        moles_FeO = FeO / MW_FeO
+        moles_FeO = FeO / MW_FeO       # 4 FeO -> Fe3O4 + Fe
+        pct = lambda mg: 100.0 * mg / (1000.0 * total) if total > 0 else 0.0
         filas.append(
-            rf"    {num(s['t'][i], 0)} & "
-            rf"{num(Fe3O4, 1)} & {num(Fe3O4 + 0.25 * moles_FeO * MW_Fe3O4, 1)} & "
-            rf"{num(FeO, 1)} & {num(0.0, 1)} & "
-            rf"{num(Fe, 2)} & {num(Fe + 0.25 * moles_FeO * MW_Fe, 2)} & "
+            rf"    {num(s['t'][i], 0)} & {num(1000.0 * total, 1)} & "
+            rf"{num(s['eps_media'][i], 3)} & "
+            rf"{num(pct(Fe3O4), 2)} & {num(pct(Fe3O4 + 0.25 * moles_FeO * MW_Fe3O4), 2)} & "
+            rf"{num(pct(FeO), 2)} & {num(0.0, 2)} & "
+            rf"{num(pct(Fe), 2)} & {num(pct(Fe + 0.25 * moles_FeO * MW_Fe), 2)} & "
             rf"{num(s['magnetizacion_Am2_kg'][i], 1)} & "
             rf"{num(s['magnetizacion_lenta_Am2_kg'][i], 1)} \\"
         )
     escribir("tabla_fen_enfriado.tex", (
-        r"\begin{tabular}{rrrrrrrrr}" "\n"
+        r"\begin{tabular}{rrrrrrrrrrr}" "\n"
         r"    \hline" "\n"
-        r"     & \multicolumn{2}{c}{Fe$_3$O$_4$ [mg]} & \multicolumn{2}{c}{FeO [mg]}"
-        r" & \multicolumn{2}{c}{Fe [mg]} & \multicolumn{2}{c}{$M_s$ [A m$^2$/kg]} \\" "\n"
-        r"    $t$ [s] & temple & lento & temple & lento & temple & lento & temple & lento \\" "\n"
+        r"     &  &  & \multicolumn{2}{c}{Fe$_3$O$_4$ [\%]} & \multicolumn{2}{c}{FeO [\%]}"
+        r" & \multicolumn{2}{c}{Fe [\%]} & \multicolumn{2}{c}{$M_s$ [A m$^2$/kg]} \\" "\n"
+        r"    $t$ [s] & masa [mg] & $\varepsilon$ & temp. & lento & temp. & lento"
+        r" & temp. & lento & temp. & lento \\" "\n"
         r"    \hline" "\n"
         + "\n".join(filas) + "\n"
         r"    \hline" "\n"

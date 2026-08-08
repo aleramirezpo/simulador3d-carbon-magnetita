@@ -1,0 +1,538 @@
+\section{Metodología}
+\label{sec:metodologia}
+
+Esta sección documenta \emph{qué} resuelve el programa y \emph{cómo}. Todas las
+ecuaciones que siguen son las que están implementadas, no una descripción
+genérica: donde el código se aparta de la forma de libro se dice y se explica por
+qué.
+
+\subsection{Qué se resuelve, y sobre qué dominio}
+
+El programa integra en el tiempo cinco bloques acoplados sobre la misma malla:
+
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+\item \textbf{Momentum} del gas, con el lecho tratado como medio poroso.
+\item \textbf{Energía}, una sola temperatura para gas y sólido (equilibrio
+térmico local).
+\item \textbf{Especies gaseosas}: CO, CO$_2$, H$_2$, H$_2$O, CH$_4$, N$_2$ y
+O$_2$.
+\item \textbf{Química heterogénea}, que consume e imprime en trece fases
+sólidas.
+\item \textbf{Submodelos diagnósticos}: cohesión, hinchamiento y magnetismo, que
+leen los campos pero no realimentan al solucionador.
+\end{enumerate}
+
+\noindent
+El dominio es el crisol entero ---metal, cavidad, tapa y carga---, no sólo el
+lecho. Cada celda lleva una etiqueta y las propiedades varían con ella: no hay
+un solucionador para el lecho y otro para el gas, hay uno con coeficientes que
+cambian en el espacio.
+
+\subsection{¿Todo esto se resuelve de verdad en 3-D?}
+\label{sec:es3d}
+
+Sí, y conviene ser explícito porque es una pregunta legítima: un problema con
+simetría de revolución podría resolverse en 2-D axisimétrico o incluso en 1-D, y
+entonces llamarlo «3-D» sería una etiqueta.
+
+\begin{clave}
+Los campos son arreglos de $n_x \times n_y \times n_z$ celdas y \textbf{las tres
+componentes del gradiente, de la divergencia y del laplaciano se evalúan en las
+tres direcciones}, con flujos en las seis caras de cada celda. No se impone
+simetría axial, no se resuelve un sector, no hay ninguna dirección promediada.
+La malla del preajuste grueso es $16\times16\times35 = \num{8960}$ celdas; la
+media, $31\times31\times70 = \num{67270}$; la fina,
+$62\times62\times139 = \num{534316}$.
+\end{clave}
+
+\noindent
+De esas \num{8960} celdas, 308 son lecho, \num{3559} gas de la cavidad,
+\num{1027} pared del crisol, 342 tapa y \num{3724} exterior. El solucionador
+trabaja sobre las activas ---lecho y gas--- y las de metal entran sólo en la
+conducción de calor.
+
+\noindent
+Ahora bien, «resuelto en 3-D» y «tridimensionalmente relevante» son cosas
+distintas, y la honestidad exige separarlas. Cada término de las ecuaciones se
+calcula en 3-D, pero no todos \emph{importan} en este ensayo. El programa mide
+la magnitud de cada uno en cada paso y la reporta:
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Término} & \textbf{Máximo medido en la corrida} & \textbf{¿Domina?} \\
+\midrule
+Difusión de calor & --- & \textbf{sí, siempre} \\
+Advección de calor & $\mathrm{Pe}_T^{\max} = \num{3.93}$ & sólo en el pico de gas \\
+Difusión de especies & --- & \textbf{sí, siempre} \\
+Advección de especies & $\mathrm{Pe}_m^{\max} = \num{5.88}$ & sólo en el pico de gas \\
+Arrastre de Darcy & $\tau_D = \SI{1.8}{\micro\second}$ & \textbf{sí, en el lecho} \\
+Viscoso de Brinkman & --- & sí, en el gas libre \\
+Advección de momentum & $\mathrm{Re}_{\text{celda}}^{\max} = \num{4.51}$ & no \\
+Forchheimer & $\mathrm{Re}_p^{\max} = \num{0.394}$ & \textbf{no} \\
+Boyancia & $\mathrm{Ra}^{\max} = \num{1862}$ vs $\mathrm{Ra}_c = \num{1708}$ & \ojo{véase abajo} \\
+Reacción heterogénea & --- & \textbf{sí} \\
+Gasificación del char & $\mathrm{Da} = \num{1.6e-17}$ & \textbf{no} \\
+\bottomrule
+\end{tabular}
+\caption{Todos los términos se evalúan en tres dimensiones, con flujos en las
+seis caras de cada celda. Los máximos son sobre las 145 instantáneas de la
+corrida, no valores nominales.}
+\label{tab:terminos3d}
+\end{table}
+
+\ojo{Una advertencia honesta sobre la boyancia.} El caso la desactiva
+(\texttt{activar\_boyancia: false}) con la justificación de que el Rayleigh del
+ensayo está por debajo del umbral convectivo. La corrida \emph{contradice} esa
+justificación: $\mathrm{Ra}$ llega a \num{1862} en el pico de devolatilización,
+por encima del crítico \num{1708}. El término está implementado y basta cambiar
+una línea del caso para activarlo; que no se haya hecho es una decisión
+pendiente, no un resultado. Dicho eso, el pico es breve y el flujo en ese
+momento lo domina la fuente de gas, tres órdenes por encima de cualquier
+corriente convectiva, así que no se espera que cambie las conclusiones ---pero
+eso hay que comprobarlo, no afirmarlo.
+
+\paragraph{Advección y difusión son comparables, no despreciables.} Los Péclet
+llegan a unidades en el estallido de gas: durante esos segundos el gas generado
+arrastra calor y especies más rápido de lo que difunden. Una versión anterior de
+este trabajo afirmaba lo contrario y hubo que corregirla; la prueba automática
+que lo fija comprueba ahora la forma real ---un pico breve y valores
+despreciables en el estado final--- y no una desigualdad global.
+
+\paragraph{Qué aporta el 3-D que un 0-D no puede.} Ésta es la justificación real
+de resolverlo así, y es verificable en los resultados:
+
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+\item \textbf{Los gradientes térmicos dentro del lecho.} El 0-D tiene una sola
+temperatura; aquí la pared, el fondo y el techo del lecho van por caminos
+distintos, y de eso depende dónde y cuándo cuaja el aglomerado.
+\item \textbf{El crecimiento del aglomerado.} Con temperatura uniforme todas las
+celdas cruzarían el umbral de coquización a la vez y el cuerpo aparecería de
+golpe. Con el campo 3-D real crece.
+\item \textbf{La geometría del crisol.} El collar, la tapa y las paredes
+inclinadas fijan el camino térmico y el volumen libre; nada de eso existe en un
+modelo agregado.
+\item \textbf{El campo de composición.} Las fases no son uniformes en el lecho,
+y el visor muestra esa distribución.
+\end{itemize}
+
+\subsection{Momentum: Darcy--Brinkman--Forchheimer}
+
+Una sola ecuación cubre el lecho granular y el espacio libre:
+
+\begin{equation}
+\frac{\rho}{\varepsilon}\frac{\partial \mathbf{u}}{\partial t}
++ \frac{\rho}{\varepsilon^{2}}(\mathbf{u}\cdot\nabla)\mathbf{u}
+= -\nabla P
++ \mu_{\mathrm{ef}}\nabla^{2}\mathbf{u}
+\underbrace{- \frac{\mu}{K}\mathbf{u}}_{\text{Darcy}}
+\underbrace{- \frac{\rho C_F}{\sqrt{K}}|\mathbf{u}|\mathbf{u}}_{\text{Forchheimer}}
++ \rho\,\mathbf{g}\,\beta\,(T-T_{\mathrm{ref}}),
+\label{eq:momentum}
+\end{equation}
+
+con $\mathbf{u} = (u,v,w)$ y todos los operadores en tres dimensiones. En el gas
+libre $\varepsilon = 1$ y $K \rightarrow \infty$: los dos términos porosos
+desaparecen y \eqref{eq:momentum} se reduce a Navier--Stokes puro.
+
+El acoplamiento presión--velocidad es la \textbf{proyección de Chorin} sobre
+malla escalonada (MAC), en tres pasos:
+
+\begin{align}
+\frac{\mathbf{u}^{*}-\mathbf{u}^{n}}{\Delta t}
+&= -\frac{1}{\varepsilon}(\mathbf{u}^{n}\!\cdot\!\nabla)\mathbf{u}^{n}
++ \frac{\varepsilon}{\rho}\Big[\mu_{\mathrm{ef}}\nabla^{2}\mathbf{u}
+- \frac{\rho C_F}{\sqrt K}|\mathbf{u}|\mathbf{u}
++ \rho\mathbf{g}\beta\,\Delta T\Big]
+- \frac{\mathbf{u}}{\tau_D},
+\label{eq:predictor}\\[4pt]
+\nabla^{2}\phi &= \frac{\rho}{\Delta t}\,\nabla\!\cdot\!\mathbf{u}^{*} - \frac{\rho}{\Delta t} S_m,
+\qquad \left.\frac{\partial \phi}{\partial n}\right|_{\partial\Omega} = 0,
+\label{eq:poisson}\\[4pt]
+\mathbf{u}^{n+1} &= \mathbf{u}^{*} - \frac{\Delta t}{\rho}\nabla\phi,
+\qquad P^{n+1} = P^{n} + \phi .
+\label{eq:correccion}
+\end{align}
+
+Aquí $\tau_D = \rho K/(\mu\varepsilon)$ es el tiempo de relajación de Darcy y
+$S_m$ la fuente volumétrica de masa por devolatilización. La malla escalonada
+---$u$ en caras $x$ de forma $(n_x{+}1, n_y, n_z)$, $v$ en caras $y$, $w$ en
+caras $z$, escalares en centros--- evita el modo de presión en tablero de
+ajedrez.
+
+\paragraph{Compatibilidad del problema de Neumann.} Con \eqref{eq:poisson}
+puramente Neumann, la solución existe sólo si el término fuente tiene media
+nula. Con fuente de masa neta no la tiene: \emph{está demostrado con una prueba
+que un recinto cerrado con fuente neta no admite solución}. Por eso el venteo no
+es un adorno sino una condición de existencia. La incompatibilidad residual se
+mide y se reporta ($\leq\SI{2.2e-16}{\per\second}$).
+
+\subsection{Energía}
+
+Una sola temperatura, con la capacidad térmica efectiva de cada celda:
+
+\begin{equation}
+(\rho c_p)_{\mathrm{ef}}\frac{\partial T}{\partial t}
+= -\,(\rho c_p)_{\mathrm{gas}}\;\mathbf{u}\cdot\nabla T
++ \nabla\!\cdot\!\big(k_{\mathrm{ef}}\nabla T\big)
++ \dot{q}_{\mathrm{rxn}} + \dot{q}_{\mathrm{pir}},
+\label{eq:energia}
+\end{equation}
+
+donde $(\rho c_p)_{\mathrm{ef}} = (1-\varepsilon)(\rho c_p)_{s} + \varepsilon(\rho c_p)_{g}$.
+
+Dos detalles de \eqref{eq:energia} no son cosméticos y costaron una corrección
+(\S\ref{sec:defectos}):
+
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+\item \textbf{El término advectivo va en forma advectiva}, no en divergencia.
+Como
+$\nabla\!\cdot\!(\mathbf{u}T) = \mathbf{u}\cdot\nabla T + T\,\nabla\!\cdot\!\mathbf{u}$
+y aquí $\nabla\!\cdot\!\mathbf{u}\neq 0$ ---la devolatilización crea unos
+\qty{19}{\centi\meter\cubed\per\second} de gas dentro del lecho---, el segundo
+sumando no transporta nada: es dilatación. Medido, restaba \SI{-778}{\kelvin\per\second}
+de media al lecho. El gas que aparece sale del sólido \emph{a la temperatura
+local} y no puede enfriar la celda que lo genera. En el código se calcula la
+divergencia y se le restituye $T\,\nabla\!\cdot\!\mathbf{u}$, lo que deja
+exactamente $\mathbf{u}\cdot\nabla T$; con campo solenoidal ambas formas
+coinciden, y por eso las pruebas MMS no lo detectaban.
+\item \textbf{Advecta el gas, no el bulto.} El coeficiente es
+$(\rho c_p)_{\mathrm{gas}}/(\rho c_p)_{\mathrm{ef}}$, que vale 1 en el gas libre
+y $\sim\!\num{2e-3}$ en el lecho. Es la formulación estándar de equilibrio
+térmico local en medio poroso; usar la capacidad efectiva equivaldría a que el
+gas arrastrase la entalpía del sólido, 500 veces mayor de la que puede llevar.
+\end{itemize}
+
+\subsection{Especies}
+
+Para cada especie gaseosa, en concentración molar por volumen de celda:
+
+\begin{equation}
+\frac{\partial c_i}{\partial t}
+= -\nabla\!\cdot\!(\mathbf{u}\,c_i)
++ \nabla\!\cdot\!\big(D_{i,\mathrm{ef}}\nabla c_i\big)
++ \dot{\omega}_i ,
+\qquad i \in \{\mathrm{CO},\mathrm{CO_2},\mathrm{H_2},\mathrm{H_2O},\mathrm{CH_4},\mathrm{N_2},\mathrm{O_2}\},
+\end{equation}
+
+con difusividades de Fuller--Schettler--Giddings y corrección de tortuosidad
+dentro del lecho:
+
+\begin{equation}
+D_i(T,P) = D_{i,\mathrm{ref}}\left(\frac{T}{T_{\mathrm{ref}}}\right)^{1.75}
+\frac{P_{\mathrm{ref}}}{P},
+\qquad
+D_{i,\mathrm{ef}} = \varepsilon^{1.5}\, D_i ,
+\qquad
+D_{i,\mathrm{ef}}\big|_{\text{metal}} = 0 .
+\end{equation}
+
+\subsection{Química}
+
+La química no se reimplementa: \texttt{fisica/adaptador\_v3.py} es un puente a
+los módulos ya validados del modelo 0-D, y la consistencia entre ambos se
+verifica a \num{2e-16}.
+
+\subsubsection{Reacciones}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Bloque} & \textbf{Reacción} \\
+\midrule
+Secado & H$_2$O(l) $\rightarrow$ H$_2$O(g) \\
+Devolatilización & volátil $\rightarrow$ CO, CO$_2$, H$_2$, H$_2$O, CH$_4$ \\
+Reducción por CO & 3\,Fe$_2$O$_3$ + CO $\rightarrow$ 2\,Fe$_3$O$_4$ + CO$_2$ \\
+ & Fe$_3$O$_4$ + CO $\rightarrow$ 3\,FeO + CO$_2$ \\
+ & FeO + CO $\rightarrow$ Fe + CO$_2$ \\
+ & FeTiO$_3$ + CO $\rightarrow$ Fe + TiO$_2$ + CO$_2$ \\
+Reducción por H$_2$ & las mismas cuatro, con H$_2$/H$_2$O \\
+Gasificación & C + CO$_2$ $\rightarrow$ 2\,CO \quad (Boudouard) \\
+ & C + H$_2$O $\rightarrow$ CO + H$_2$ \quad (gas de agua) \\
+Homogénea & CO + H$_2$O $\rightleftharpoons$ CO$_2$ + H$_2$ \quad (WGS) \\
+Combustión & C + O$_2$ $\rightarrow$ CO/CO$_2$, con el reparto de Arthur \\
+Escoria & 2\,FeO + SiO$_2$ $\rightarrow$ Fe$_2$SiO$_4$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{La ley de velocidad, y por qué no lleva tope de conversión}
+
+Cada reducción se escribe como una constante de Arrhenius multiplicada por la
+\emph{afinidad} termodinámica del gas:
+
+\begin{equation}
+r_j = \underbrace{A_j\,e^{-E_{a,j}/RT}}_{\text{cinética}}\;
+\underbrace{n_{\text{óxido}}}_{\text{inventario}}\;
+\underbrace{\max\!\left(0,\; 1 - \frac{Q}{K_{\mathrm{eq},j}(T)}\right)}_{\text{afinidad}}\;
+\underbrace{f_{\mathrm{acc}}}_{\text{accesibilidad}},
+\qquad
+Q_{\mathrm{CO}} = \frac{p_{\mathrm{CO_2}}}{p_{\mathrm{CO}}},
+\quad
+Q_{\mathrm{H_2}} = \frac{p_{\mathrm{H_2O}}}{p_{\mathrm{H_2}}} .
+\label{eq:afinidad}
+\end{equation}
+
+Ésta es la pieza central del modelo. Al reducir un óxido el gas se oxida, $Q$ se
+acerca a $K_{\mathrm{eq}}$, la afinidad cae \emph{continuamente} a cero y la
+reacción se para sola. \textbf{La conversión parcial emerge de la termodinámica
+del gas}, sin ningún $\alpha_{\max}$ impuesto ---que es lo que hacía la versión
+anterior del trabajo. De ahí sale el tamponamiento sobre la frontera
+Fe$_3$O$_4$/FeO. Los dos canales, CO y H$_2$, se evalúan por separado y actúan a
+la vez.
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lrrl}
+\toprule
+\textbf{Reacción} & $A$ & $E_a$ [\si{\kilo\joule\per\mole}] & \textbf{Fuente} \\
+\midrule
+Fe$_2$O$_3\rightarrow$Fe$_3$O$_4$ & \num{5.0e4} & 70{,}0 & Hammam \emph{et al.} (2022) \\
+Fe$_3$O$_4\rightarrow$FeO & \num{2.0e5} & 88{,}7 & Hammam \emph{et al.} (2022), $E_{a1}$ \\
+FeO$\rightarrow$Fe & \num{8.0e5} & 120{,}0 & Hammam (2022) y lit.\ de wüstita \\
+FeTiO$_3\rightarrow$Fe+TiO$_2$ & \num{1.0e6} & 190{,}0 & extrapolado de 1000--\SI{1200}{\celsius} \\
+Devolatilización & \num{1.0e4} & 55{,}0 & van Krevelen; compuerta a \SI{450}{\celsius} \\
+Boudouard & \num{3.0e8} & 220{,}0 & lit.\ de cinética intrínseca de \emph{chars} \\
+Gas de agua & \num{1.0e8} & 210{,}0 & ídem \\
+WGS & \num{1.0e5} & 80{,}0 & forma reversible \\
+Combustión & \num{1.0e6} & 150{,}0 & correlación de Arthur para CO/CO$_2$ \\
+\bottomrule
+\end{tabular}
+\caption{Parámetros cinéticos. Los de reducción llevan además un factor de
+escala por par redox declarado \textsc{calibrable}; el de la magnetita,
+$k = 0{,}20$, queda pendiente de revisión (\S\ref{sec:frontera}).}
+\end{table}
+
+\paragraph{Compuerta de devolatilización.} La liberación de volátiles se activa
+con una sigmoide en temperatura,
+$g_{\mathrm{vol}} = \sigma(T - 273{,}15;\, T_0,\, w)$ con $w = \SI{40}{\celsius}$
+y $T_0 = \SI{450}{\celsius}$. $T_0$ es el \emph{centro} de la sigmoide, no un
+umbral: con el valor anterior de \SI{200}{\celsius} la compuerta estaba abierta
+al \qty{98}{\percent} ya a \SI{360}{\celsius} (\S\ref{sec:puerta}).
+
+\paragraph{Accesibilidad de las lamas.} La titanohematita está intercrecida
+dentro de los granos de magnetita, así que sólo se expone al gas conforme avanza
+el frente de reducción de la magnetita:
+$f_{\mathrm{acc}} = f(\alpha_{\mathrm{Fe_3O_4}},\, e_{\mathrm{lama}})$, con el
+espesor de lama declarado \textsc{calibrable} porque no se ha medido.
+
+\subsubsection{Integración: por qué Patankar}
+
+La química es rígida ---modos desde \SI{1e-9}{\second}--- y debe conservar la
+positividad de las concentraciones: una concentración negativa no es un error
+pequeño, es una imposibilidad física que además envenena el paso siguiente. Se
+integra con un esquema de \textbf{Patankar}, que separa producción y consumo,
+
+\begin{equation}
+c_i^{\,n+1} = \frac{c_i^{\,n} + \Delta t\, P_i}{1 + \Delta t\, D_i / c_i^{\,n}},
+\qquad
+\frac{\mathrm{d}c_i}{\mathrm{d}t} = P_i - D_i ,
+\end{equation}
+
+y es \textbf{incondicionalmente positivo}, en subpasos internos acotados por
+\texttt{dt\_quimica\_max\_s} (\SI{0.05}{\second}) con un máximo de 256.
+
+\paragraph{Tabulación.} La termodinámica depende sólo de $T$, así que se tabula
+una vez sobre una rejilla y se interpola. En malla fina eso multiplicó por
+\textbf{202} el número de celdas resueltas por segundo.
+
+\subsection{Cierres}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Magnitud} & \textbf{Relación} & \textbf{Fuente} \\
+\midrule
+Permeabilidad & $K = \dfrac{d_p^{2}\,\varepsilon^{3}}{150\,(1-\varepsilon)^{2}}$ & Kozeny--Carman \\[7pt]
+Conductividad del lecho & $k_{\mathrm{ef}} = (1-\varepsilon)k_{\mathrm{esq}} + \varepsilon k_{\mathrm{gas}}$ & mezcla volumétrica \\[3pt]
+Capacidad del lecho & $(\rho c_p)_{\mathrm{ef}} = (1-\varepsilon)(\rho c_p)_s + \varepsilon(\rho c_p)_g$ & --- \\[3pt]
+Densidad del gas & $\rho = PM/RT$ & gas ideal \\[3pt]
+Difusividades & $D \propto T^{1.75}/P$, $D_{\mathrm{ef}} = \varepsilon^{1.5}D$ & Fuller \emph{et al.} (1966) \\[3pt]
+Termoquímica & Shomate y Maier--Kelley & NIST--JANAF (Chase, 1998) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent
+Para el concentrado del ensayo ($d_p = \SI{175}{\micro\meter}$,
+$\varepsilon = 0{,}54$) Kozeny--Carman da $K = \SI{1.52e-10}{\meter\squared}$.
+La conductividad del lecho interpola entre \qty{1.2}{\watt\per\meter\per\kelvin}
+y \qty{0.6}{} según el grado de reducción local (Kiamehr \emph{et al.}).
+
+\paragraph{La porosidad está viva.} $\varepsilon$ se recalcula en cada paso a
+partir del volumen de sólido que queda,
+
+\begin{equation}
+\varepsilon(t) = 1 - \big(1-\varepsilon_0\big)\,
+\frac{\sum_i c_i(t)\,M_i/\rho_i}{\sum_i c_i(0)\,M_i/\rho_i},
+\end{equation}
+
+y con ella se refrescan $K$, $k_{\mathrm{ef}}$ y la tortuosidad de las
+difusividades. Se aplica el cambio \emph{relativo} sobre la porosidad inicial
+calibrada, de modo que en $t=0$ sale exactamente el valor del ensayo. Sólo se
+actualiza cuando ha cambiado más de \num{5e-3}: reescribirla en cada paso
+invalidaba la caché de la factorización ILU y hacía la corrida diez veces más
+lenta.
+
+\subsection{Condiciones de frontera}
+
+\begin{itemize}[leftmargin=*,itemsep=3pt]
+\item \textbf{Mufla.} Radiación sobre la superficie exterior del crisol,
+\begin{equation}
+q'' = \varepsilon_{\mathrm{em}}\,F\,\sigma\,\big(T_{\mathrm{mufla}}^{4}(t) - T^{4}\big),
+\qquad \varepsilon_{\mathrm{em}} = 0{,}80,\quad F = 1{,}00,
+\end{equation}
+con la \emph{curva real medida} del horno, incluida su caída al abrir la puerta.
+El factor de vista es 1,00: el acoplamiento térmico no lleva ningún parámetro
+calibrado.
+\item \textbf{Venteo.} La devolatilización genera unos
+\qty{19}{\centi\meter\cubed\per\second} de gas dentro de un recinto que, si se
+tratara como cerrado, no tendría solución (véase la nota de
+\eqref{eq:poisson}). Se modela como un sumidero de masa en la corona de gas bajo
+la junta de la tapa, y el inventario que sale se contabiliza para cerrar el
+balance.
+\item El resto de las caras son de flujo difusivo nulo, $\partial\phi/\partial n = 0$.
+\end{itemize}
+
+\subsection{Submodelos diagnósticos}
+
+Tres, y los tres \emph{leen} los campos sin realimentar al solucionador:
+
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+\item \textbf{Cohesión}: coquización del carbón a través de una variable interna
+irreversible, el grado de plastificación, que avanza mientras la celda está
+dentro de la ventana termoplástica (350--\SI{500}{\celsius}, van Krevelen) y no
+vuelve atrás. El aglomerado es el conjunto de celdas conexas con
+$c \geq 0{,}5$, obtenido por componentes conexas en 3-D.
+\item \textbf{Hinchamiento} (\S\ref{sec:hinchamiento}): sigue al mismo grado de
+plastificación, no a la temperatura instantánea.
+\item \textbf{Magnetismo} (\S\ref{sec:magnetismo}): magnetización de saturación
+a temperatura ambiente del inventario de fases, mezcla lineal en masa.
+\end{itemize}
+
+\subsection{Método numérico}
+
+\paragraph{Separación de operadores de Strang.} Los procesos difieren en órdenes
+de magnitud ---relajación de Darcy \SI{1.8e-6}{\second}, química con modos desde
+\SI{1e-9}{\second}, advección $\sim\SI{1e-2}{\second}$---, así que se integran
+por bloques:
+
+\begin{equation}
+\text{química}\!\left(\tfrac{\Delta t}{2}\right) \rightarrow
+\text{momentum}(\Delta t) \rightarrow
+\text{transporte}(\Delta t) \rightarrow
+\text{química}\!\left(\tfrac{\Delta t}{2}\right).
+\end{equation}
+
+Es simétrico y de segundo orden \emph{para la separación}, pero conviene no
+engañarse: el orden global lo limita el bloque menos preciso, y la verificación
+por MMS mide \num{1.01} en el tiempo. La simetría sigue mereciendo la pena
+porque elimina el sesgo sistemático de la separación de Lie.
+
+\paragraph{Volúmenes finitos conservativos.} Los flujos se evalúan en caras, de
+modo que lo que sale de una celda entra exactamente en su vecina. La difusión
+promedia \textbf{conductividades} con media armónica,
+
+\begin{equation}
+k_{i+1/2} = \frac{2\,k_i\,k_{i+1}}{k_i + k_{i+1}},
+\end{equation}
+
+y cada fila se divide por la capacidad de su propia celda. Promediar
+difusividades es correcto sólo con $\rho c_p$ uniforme; en la interfaz gas/metal
+el salto es de 3.100 veces y esa aproximación creaba energía
+(\S\ref{sec:defectos}).
+
+\paragraph{Advección TVD.} El esquema por omisión es \textbf{TVD superbee} con
+el limitador de Roe--Sweby,
+
+\begin{equation}
+\psi(r) = \max\!\big[0,\ \min(2r,1),\ \min(r,2)\big],
+\qquad
+r = \frac{\phi_{U} - \phi_{UU}}{\phi_{D} - \phi_{U}},
+\end{equation}
+
+que degrada localmente a upwind junto a las fronteras, donde no hay segunda
+celda aguas arriba. Se comparó con upwind y con diferencias centradas:
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lccc}
+\toprule
+$\mathrm{Pe}$ & \textbf{upwind} & \textbf{central} & \textbf{TVD superbee} \\
+\midrule
+1 & $L_2 = \num{2.2e-3}$ & \num{3.1e-4} & \num{3.0e-4} \\
+10 & \num{3.1e-2} & \num{5.1e-3} & \num{5.1e-3} \\
+50 & rango $[0;\,0{,}444]$ & \ojo{$[-0{,}049;\,0{,}444]$} & $[0;\,0{,}444]$ \\
+\bottomrule
+\end{tabular}
+\caption{A $\mathrm{Pe}=50$ el esquema central produce concentraciones
+\emph{negativas}. TVD mantiene monotonía con la misma precisión.}
+\end{table}
+
+\paragraph{Qué se trata implícitamente, y por qué.} El arrastre de Darcy es
+lineal en la velocidad, así que se integra de forma \emph{exacta} e
+incondicionalmente estable:
+
+\begin{equation}
+u^{n+1} = \frac{u^{n} + \Delta t\,(\text{resto})}{1 + \Delta t/\tau_D} .
+\end{equation}
+
+\begin{table}[H]
+\centering\small
+\begin{tabular}{lrr}
+\toprule
+\textbf{Configuración} & \textbf{paso estable} & \textbf{pasos para \SI{720}{\second}} \\
+\midrule
+Todo explícito & \SI{3.92e-7}{\second} & \num{1836734694} \\
++ Darcy implícito & \SI{5.43e-5}{\second} & \num{13248000} \\
++ viscoso implícito & \SI{5.43e-5}{\second} & \num{13248000} \\
++ difusión implícita & \SI{2.15e-3}{\second} & \num{335520} \\
+\bottomrule
+\end{tabular}
+\caption{Ganancia total: \num{5474} veces. Sin Darcy implícito,
+$\tau_D = \SI{1.8}{\micro\second}$ obligaría a mil ochocientos millones de pasos.}
+\end{table}
+
+\paragraph{Sistemas lineales.} BiCGSTAB con precondicionador ILU, con la
+factorización cacheada por $(\Delta t, \nu, \text{Darcy})$, y respaldo directo
+(\texttt{spsolve}) por si el iterativo sufre \emph{breakdown} ---que ocurre
+cuando la física llega al reposo y $\|b\|\rightarrow 0$, es decir, justamente
+cuando el resultado es correcto. Los sistemas se construyen \textbf{sólo sobre
+las celdas activas}: meter las celdas sólidas, que llevan
+$\varepsilon = 10^{-6}$ y $K = 10^{-20}$, ponía catorce órdenes de contraste en
+la misma matriz. Restringirlo llevó la divergencia residual de \num{1.2e-3} a
+\num{1.7e-17} y además resultó un \qty{48}{\percent} más rápido.
+
+\paragraph{Paso adaptativo.} Se limita por CFL ($\mathrm{CFL} = 0{,}4$), por
+estabilidad difusiva y por el acoplamiento químico, con
+$\Delta t \in [\SI{1e-9}{}, \SI{0.5}{}]\,\si{\second}$. En régimen el limitador
+práctico es \texttt{dt\_max\_acople}.
+
+\subsection{Geometría y malla}
+
+El crisol se reconstruyó de las cotas y se cerró con una fotografía acotada, que
+aportó una cota ausente de todos los archivos: un collar de
+\qty{30.6}{\milli\meter} de diámetro, más ancho que la boca. Con él la masa
+calculada coincide con los \qty{32.67}{\gram} declarados a
+\SI{4e-14}{\gram}; sin él faltaban \qty{77}{\milli\gram}.
+
+El lecho es un disco delgado ---\qty{1.36}{\centi\meter\cubed} en
+\qty{22.8}{\milli\meter} de diámetro son \qty{3.26}{\milli\meter} de altura, una
+relación de aspecto de 7,7:1---, y por eso la malla es \textbf{anisótropa}:
+$\Delta x = \Delta y = \SI{2.0}{\milli\meter}$ y $\Delta z =
+\SI{1.0}{\milli\meter}$ en el preajuste grueso, la mitad en el medio y la cuarta
+parte en el fino. Las celdas cortadas por la frontera llevan fracción
+volumétrica parcial, de modo que la carga se reparte con su volumen real y no
+por el centro de celda.
+
+\subsection{Qué produce}
+
+Cada instantánea es un NPZ con el contrato declarado en
+\texttt{docs/CONTRATOS.md}: velocidades en caras, presión, temperatura,
+porosidad, cohesión e hinchamiento en centros, las siete especies gaseosas, las
+trece fases sólidas, las etiquetas de celda y unos metadatos con los números
+adimensionales y el magnetismo. De ahí salen el visor 3-D y \textbf{todas} las
+cifras de este informe.
