@@ -169,6 +169,96 @@ def tabla_fases(datos):
     ))
 
 
+# Instantes de extracción que se tabulan. Los primeros son los que el
+# laboratorio observó o midió; el resto reparte lo que queda del ensayo.
+TIEMPOS_EXTRACCION = (0.0, 30.0, 60.0, 90.0, 120.0, 150.0, 210.0, 360.0, 720.0)
+
+
+def _indice_mas_cercano(s, objetivo):
+    tiempos = np.asarray(s["t"], dtype=float)
+    return int(np.argmin(np.abs(tiempos - float(objetivo))))
+
+
+def tabla_fases_por_tiempo(datos):
+    """Inventario de fases DENTRO de la mufla, en cada instante de extracción.
+
+    Es el estado a \\SI{900}{\\celsius}, no lo que se recupera: para eso está
+    `tabla_enfriado`, que aplica el eutectoide de la wüstita.
+    """
+    s = datos["serie"]
+    columnas = (
+        ("volatil", "volátil"),
+        ("C", "char"),
+        ("ceniza", "ceniza"),
+        ("Fe2O3", r"Fe$_2$O$_3$"),
+        ("Fe3O4", r"Fe$_3$O$_4$"),
+        ("FeO", "FeO"),
+        ("Fe", "Fe"),
+        ("FeTiO3", r"FeTiO$_3$"),
+    )
+    presentes = [(clave, etiqueta) for clave, etiqueta in columnas if f"m_{clave}" in s]
+    filas = []
+    for objetivo in TIEMPOS_EXTRACCION:
+        i = _indice_mas_cercano(s, objetivo)
+        celdas = " & ".join(num(1000.0 * s[f"m_{c}"][i], 2) for c, _ in presentes)
+        filas.append(rf"    {num(s['t'][i], 0)} & {celdas} \\")
+    cabecera = " & ".join(etiqueta for _, etiqueta in presentes)
+    escribir("tabla_fen_fases_tiempo.tex", (
+        r"\begin{tabular}{r" + "r" * len(presentes) + "}\n"
+        r"    \hline" "\n"
+        rf"    $t$ [s] & {cabecera} \\" "\n"
+        r"    \hline" "\n"
+        + "\n".join(filas) + "\n"
+        r"    \hline" "\n"
+        r"\end{tabular}"
+    ))
+
+
+def tabla_enfriado(datos):
+    """Lo que se RECUPERA a temperatura ambiente, en cada instante de extracción.
+
+    Por debajo de \\SI{570}{\\celsius} la wüstita deja de ser estable y se
+    descompone, 4 FeO -> Fe3O4 + Fe. Se dan las dos cotas: temple, con la
+    wüstita conservada entera, y enfriamiento lento, con ella descompuesta del
+    todo. La lectura real está entre las dos.
+    """
+    from fisica import magnetismo as mag
+
+    s = datos["serie"]
+    enf = datos["enfriamiento"]
+    fraccion = mag.fraccion_eutectoide(float(enf["tiempo_en_ventana_eutectoide_s"]))
+    macro("datFraccionEutectoide", num(100.0 * fraccion, 0))
+
+    MW_FeO, MW_Fe3O4, MW_Fe = 71.844, 231.531, 55.845
+    filas = []
+    for objetivo in TIEMPOS_EXTRACCION:
+        i = _indice_mas_cercano(s, objetivo)
+        Fe3O4 = 1000.0 * s["m_Fe3O4"][i]
+        FeO = 1000.0 * s["m_FeO"][i]
+        Fe = 1000.0 * s["m_Fe"][i]
+        # 4 FeO -> Fe3O4 + Fe, con toda la wüstita transformada.
+        moles_FeO = FeO / MW_FeO
+        filas.append(
+            rf"    {num(s['t'][i], 0)} & "
+            rf"{num(Fe3O4, 1)} & {num(Fe3O4 + 0.25 * moles_FeO * MW_Fe3O4, 1)} & "
+            rf"{num(FeO, 1)} & {num(0.0, 1)} & "
+            rf"{num(Fe, 2)} & {num(Fe + 0.25 * moles_FeO * MW_Fe, 2)} & "
+            rf"{num(s['magnetizacion_Am2_kg'][i], 1)} & "
+            rf"{num(s['magnetizacion_lenta_Am2_kg'][i], 1)} \\"
+        )
+    escribir("tabla_fen_enfriado.tex", (
+        r"\begin{tabular}{rrrrrrrrr}" "\n"
+        r"    \hline" "\n"
+        r"     & \multicolumn{2}{c}{Fe$_3$O$_4$ [mg]} & \multicolumn{2}{c}{FeO [mg]}"
+        r" & \multicolumn{2}{c}{Fe [mg]} & \multicolumn{2}{c}{$M_s$ [A m$^2$/kg]} \\" "\n"
+        r"    $t$ [s] & temple & lento & temple & lento & temple & lento & temple & lento \\" "\n"
+        r"    \hline" "\n"
+        + "\n".join(filas) + "\n"
+        r"    \hline" "\n"
+        r"\end{tabular}"
+    ))
+
+
 def tabla_fronteras(datos):
     s = datos["serie"]
     fronteras = fronteras_co()
@@ -372,6 +462,8 @@ def main() -> int:
     print("tablas y datos de fenomenología:")
     tabla_parametros(datos)
     tabla_fases(datos)
+    tabla_fases_por_tiempo(datos)
+    tabla_enfriado(datos)
     tabla_fronteras(datos)
     tabla_cronologia(datos)
     tabla_adimensionales(datos)

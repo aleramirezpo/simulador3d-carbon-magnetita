@@ -341,6 +341,124 @@ def enfriamiento_al_aire(
     }
 
 
+# CALIBRABLES, los dos. Cinética del eutectoide de la wüstita al enfriar,
+# escrita como una ley de Johnson--Mehl--Avrami sobre el tiempo que el cuerpo
+# pasa en la ventana 570-400 °C:
+#
+#     f(t) = 1 - exp(-(t/tau)**n)
+#
+# De dónde salen tau y n, porque no son un ajuste a este ensayo sino a los dos
+# únicos puntos medidos que se han encontrado. Zorc, Nagode y Kosec (2024)
+# reportan, para muestras oxidadas a 700 °C, fracciones de wüstita en la capa de
+# óxido de 0,17 enfriando a 100 °C/min y 0,41 enfriando a 1000 °C/min. Con la
+# ventana de 170 K eso son 102 s y 10,2 s dentro de ella. Normalizando por la
+# wüstita presente a temperatura (SUPUESTO: 0,50 de la capa; su cálculo CALPHAD
+# da hasta 0,72 en la interfaz y menos hacia fuera) resultan extensiones de
+# descomposición de 0,66 y 0,18, y de ahí tau = 92,3 s y n = 0,735.
+#
+# El supuesto del 0,50 es el eslabón débil de toda la cadena, y por eso el
+# resultado principal NO es este número: son las DOS COTAS, f=0 y f=1. Este
+# valor central se reporta como estimación ilustrativa y nada más. Los rangos
+# cubren desde una cinética diez veces más rápida hasta diez veces más lenta.
+TIEMPO_CARACTERISTICO_EUTECTOIDE_S = 92.3
+RANGO_TIEMPO_CARACTERISTICO_S = (9.0, 900.0)
+EXPONENTE_AVRAMI_EUTECTOIDE = 0.735
+RANGO_EXPONENTE_AVRAMI = (0.5, 1.5)
+
+
+def fraccion_eutectoide(
+    tiempo_en_ventana_s: float,
+    *,
+    tau_s: float = TIEMPO_CARACTERISTICO_EUTECTOIDE_S,
+    n: float = EXPONENTE_AVRAMI_EUTECTOIDE,
+) -> float:
+    """Fracción de la wüstita que alcanza a descomponerse al enfriar.
+
+    0 es temple perfecto y 1 es descomposición completa. Es una ESTIMACIÓN
+    ilustrativa: lo que se reporta como resultado son las dos cotas.
+    """
+
+    t = float(tiempo_en_ventana_s)
+    if not math.isfinite(t) or t < 0.0:
+        raise ValueError("tiempo_en_ventana_s debe ser finito y no negativo")
+    if float(tau_s) <= 0.0 or float(n) <= 0.0:
+        raise ValueError("tau_s y n deben ser positivos")
+    if t == 0.0:
+        return 0.0
+    return float(1.0 - math.exp(-((t / float(tau_s)) ** float(n))))
+
+
+# Lo que este modelo de enfriado NO representa, dicho antes de que alguien lo
+# lea como una lista completa de fases del producto.
+NO_MODELADO_AL_ENFRIAR = (
+    "Reoxidacion en aire. El aglomerado sale a 900 grados C y se enfria al aire, "
+    "de modo que su superficie puede reoxidarse: magnetita a hematita o "
+    "maghemita, y hierro metalico a oxido. Iria en contra del magnetismo y "
+    "restaria a las dos cotas, sobre todo a la de enfriamiento lento, que es la "
+    "que pasa mas tiempo caliente.",
+    "Combustion del char. Queda carbono fijo en cantidad y sale al aire "
+    "incandescente; parte puede arder durante el enfriado. Eso quitaria masa no "
+    "magnetica y SUBIRIA la magnetizacion especifica sin cambiar ninguna fase de "
+    "hierro.",
+    "Gradientes dentro del cuerpo. La capacidad concentrada da una sola "
+    "temperatura; la superficie se enfria antes que el nucleo, asi que la "
+    "fraccion de eutectoide no es uniforme.",
+)
+
+
+def fases_tras_enfriar(
+    solido_mol_m3: Mapping[str, Any],
+    volumen_celda_m3: Any,
+    fraccion_descompuesta: float = 0.0,
+) -> dict[str, float]:
+    """Inventario de fases A TEMPERATURA AMBIENTE, en moles.
+
+    Es lo que encontraría un DRX del aglomerado recuperado, no lo que hay dentro
+    de la mufla. La única transformación que se aplica es el eutectoide de la
+    wüstita, 4 FeO -> Fe3O4 + Fe, con la extensión que se le pase. Todo lo demás
+    se congela: la ilmenita, la titanohematita, el char y las cenizas no tienen
+    ninguna transformación accesible entre 900 °C y el ambiente.
+
+    Véase :data:`NO_MODELADO_AL_ENFRIAR` para lo que queda fuera.
+    """
+
+    f = float(fraccion_descompuesta)
+    if not math.isfinite(f) or not 0.0 <= f <= 1.0:
+        raise ValueError("fraccion_descompuesta debe pertenecer a [0, 1]")
+
+    volumen = np.asarray(volumen_celda_m3, dtype=float)
+    # Se parte de TODAS las fases del inventario en cero, aunque no vengan en la
+    # entrada: el resultado es una lista de fases completa, con sus ausencias
+    # dichas explícitamente, y no una lista de las que casualmente había.
+    moles: dict[str, float] = dict.fromkeys(MASAS_MOLARES_SOLIDO_KG_MOL, 0.0)
+    for fase, concentracion in solido_mol_m3.items():
+        if fase.startswith("_") or fase not in MASAS_MOLARES_SOLIDO_KG_MOL:
+            continue
+        moles[fase] = float(np.sum(np.asarray(concentracion, dtype=float) * volumen))
+
+    n_FeO = moles.get("FeO", 0.0)
+    if f > 0.0 and n_FeO > 0.0:
+        transformada = f * n_FeO
+        moles["FeO"] = n_FeO - transformada
+        moles["Fe3O4"] = moles.get("Fe3O4", 0.0) + 0.25 * transformada
+        moles["Fe"] = moles.get("Fe", 0.0) + 0.25 * transformada
+    return moles
+
+
+def masas_tras_enfriar_g(
+    solido_mol_m3: Mapping[str, Any],
+    volumen_celda_m3: Any,
+    fraccion_descompuesta: float = 0.0,
+) -> dict[str, float]:
+    """Lo mismo que :func:`fases_tras_enfriar`, en gramos por fase."""
+
+    moles = fases_tras_enfriar(solido_mol_m3, volumen_celda_m3, fraccion_descompuesta)
+    return {
+        fase: 1000.0 * n * MASAS_MOLARES_SOLIDO_KG_MOL[fase]
+        for fase, n in moles.items()
+    }
+
+
 def veredicto_de_temple(
     *, cuerpo: Mapping[str, float] | None = None, **parametros: Any
 ) -> dict[str, Any]:

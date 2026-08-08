@@ -70,20 +70,28 @@ def tabla_evolucion(serie, volumen, m0):
         val = lecho & (Fe0 > 1e-9)
         conv = 100.0 * float(np.mean(np.clip(1 - Fe[val] / Fe0[val], 0, 1))) if val.any() else 0.0
         filas.append(
-            f"{t:.0f} & {num(float(np.asarray(c['T'])[lecho].mean()), 1)} & "
+            f"{t:.0f} & {num(float(np.asarray(c['T'])[lecho].mean()) - 273.15, 0)} & "
             f"{num(float(np.asarray(c['eps'])[lecho].mean()), 3)} & "
             f"{num(float(np.asarray(c['hinchamiento'])[lecho].mean()), 3)} & "
+            f"{num(float(coh.mean()), 3)} & "
             f"{num(100.0 * (m0 - masa_solida_g(c, volumen)) / m0, 2)} & "
             f"{int((coh > 0.5).sum())} / {int(lecho.sum())} & {num(conv, 1)} \\\\"
         )
     cuerpo = "\n".join(filas)
     (SALIDA / "tabla_evolucion.tex").write_text(
         "\\begin{table}[h]\n\\centering\\small\n"
-        "\\begin{tabular}{rrrrrrr}\n\\toprule\n"
-        "$t$ (\\si{\\second}) & $T$ lecho (\\si{\\kelvin}) & porosidad & hinchamiento "
-        "& pérdida (\\%) & celdas formadas & conversión (\\%) \\\\\n\\midrule\n"
+        "\\begin{tabular}{rrrrrrrr}\n\\toprule\n"
+        "$t$ (\\si{\\second}) & $T$ lecho (\\si{\\celsius}) & porosidad & hinchamiento "
+        "& cohesión & pérdida (\\%) & celdas formadas & conversión (\\%) "
+        "\\\\\n\\midrule\n"
         f"{cuerpo}\n\\bottomrule\n\\end{{tabular}}\n"
-        "\\caption{Evolución de la corrida de \\SI{720}{\\second}.}\n\\end{table}\n",
+        "\\caption{Estado del lecho en cada instante. La porosidad sube de 0,540 "
+        "a 0,678 conforme se van los volátiles, y con ella cambian la "
+        "permeabilidad, la conductividad efectiva y la tortuosidad; el "
+        "hinchamiento es el factor de expansión del aglomerado; la conversión "
+        "es la de la hematita. Las fases están en el "
+        "cuadro~\\ref{tab:fases-tiempo} y lo que se recupera tras enfriar, en "
+        "el~\\ref{tab:enfriado}.}\n\\end{table}\n",
         encoding="utf-8")
 
 

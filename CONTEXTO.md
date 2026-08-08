@@ -1251,3 +1251,56 @@ No se ha ajustado. Ajustar `k_boudouard` hasta que la curva baje sería
 exactamente el error que este proyecto ya ha pagado cuatro veces. Queda como
 `tests/test_magnetismo.py::test_el_magnetismo_sigue_bajando_despues_de_los_150_segundos`,
 marcada `xfail(strict=True)`: avisará el día en que el modelo la reproduzca.
+
+### 19.10 QUÉ SE RECUPERA: LAS FASES A TEMPERATURA AMBIENTE
+
+Faltaba, y era una laguna real: todo lo que reportaba el informe era el estado
+**dentro** de la mufla. Lo que el laboratorio tiene en la mano es otra cosa.
+
+Entre los 900 °C y la mesa hay **una sola** transformación accesible: por debajo
+de 570 °C la wüstita deja de ser estable y se descompone,
+4 FeO → Fe₃O₄ + Fe. La ilmenita, la titanohematita, el char y las cenizas no
+tienen ninguna ruta, así que bajan congelados.
+
+`fisica/magnetismo.py` añade:
+
+- `fraccion_eutectoide(tiempo_en_ventana_s)`, ley de Avrami **CALIBRABLE**
+  (τ = 92,3 s, n = 0,735) anclada en las dos únicas fracciones medidas que se
+  encontraron: Zorc, Nagode y Kosec (2024) dan 0,17 de wüstita retenida
+  enfriando a 100 °C/min y 0,41 a 1000 °C/min. El eslabón débil es el supuesto
+  de cuánta wüstita había en sus probetas (0,50 de la capa), y por eso **el
+  resultado que se defiende son las dos cotas**, no este número.
+- `fases_tras_enfriar()` y `masas_tras_enfriar_g()`, que devuelven el inventario
+  completo a temperatura ambiente, con las fases ausentes en cero explícito.
+- `NO_MODELADO_AL_ENFRIAR`, con las tres cosas que quedan fuera y en qué
+  dirección tira cada una.
+
+Los dos informes llevan ahora **dos tablas por tiempo de extracción**
+(0, 30, 60, 90, 120, 150, 210, 360 y 720 s):
+
+| | contenido |
+|---|---|
+| `tabla_fen_fases_tiempo` | inventario de fases **en la mufla**, en mg |
+| `tabla_fen_enfriado` | lo que se **recupera en frío**, Fe₃O₄/FeO/Fe y M_s, con las dos cotas |
+
+Y la tabla de estado de `informe.tex` pasa a llevar también la cohesión y la
+temperatura en °C junto a la porosidad, el hinchamiento y la pérdida.
+
+Lo que se recupera, en las dos cotas (mg):
+
+| t (s) | Fe₃O₄ temple → lento | FeO temple → lento | Fe temple → lento | M_s temple → lento |
+|---:|---|---|---|---|
+| 90 | 210,4 → 218,4 | 10,0 → 0 | 0,19 → 2,13 | 25,7 → 27,2 |
+| 120 | 192,9 → 211,1 | 22,6 → 0 | 3,07 → 7,46 | 24,5 → 27,9 |
+| ≥150 | 178,7 → 205,0 | 32,6 → 0 | 5,50 → 11,84 | 23,5 → 28,5 |
+
+Con la ventana de 49,8 s del crisol, la estimación central es que se
+descompondría el **47 %** de la wüstita: a mitad de camino entre las dos
+columnas. Volcando el aglomerado solo, un 9 %.
+
+**Lo que el enfriado hace y esto no recoge**, declarado en el informe: la
+reoxidación en aire de la superficie (restaría magnetismo), la combustión del
+char al salir incandescente (subiría la magnetización específica sin cambiar
+ninguna fase de hierro) y los gradientes internos (la superficie cruza el
+eutectoide antes que el núcleo). Las tres se cierran con lo mismo: un DRX del
+aglomerado recuperado a dos o tres tiempos.

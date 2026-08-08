@@ -171,6 +171,72 @@ def test_volcar_el_aglomerado_solo_si_seria_un_temple() -> None:
     assert solo["veredicto"].startswith("TEMPLE:")
 
 
+# --- Lo que se recupera a temperatura ambiente ------------------------------
+
+
+def test_el_eutectoide_conserva_el_hierro() -> None:
+    """4 FeO -> Fe3O4 + Fe: ni un atomo de mas ni de menos."""
+
+    solido = _solido(FeO=4000.0, Fe3O4=100.0)
+    for fraccion in (0.0, 0.35, 1.0):
+        moles = mag.fases_tras_enfriar(solido, V, fraccion)
+        fe = moles["FeO"] + 3.0 * moles["Fe3O4"] + moles["Fe"]
+        assert fe == pytest.approx(4.0e-3 + 3.0 * 1.0e-4, rel=1e-12)
+    # Con descomposicion total no queda wustita, y aparecen las dos fases.
+    completo = mag.fases_tras_enfriar(solido, V, 1.0)
+    assert completo["FeO"] == pytest.approx(0.0, abs=1e-18)
+    assert completo["Fe3O4"] == pytest.approx(1.0e-4 + 1.0e-3, rel=1e-12)
+    assert completo["Fe"] == pytest.approx(1.0e-3, rel=1e-12)
+
+
+def test_lo_que_no_es_hierro_baja_congelado() -> None:
+    """Ilmenita, char y ceniza no tienen ruta accesible entre 900 C y el ambiente."""
+
+    solido = _solido(FeO=1000.0, FeTiO3=500.0, C=8000.0, ceniza=300.0)
+    antes = mag.fases_tras_enfriar(solido, V, 0.0)
+    despues = mag.fases_tras_enfriar(solido, V, 1.0)
+    for fase in ("FeTiO3", "C", "ceniza"):
+        assert despues[fase] == pytest.approx(antes[fase], rel=1e-12)
+
+
+def test_la_fraccion_de_eutectoide_decrece_al_enfriar_mas_rapido() -> None:
+    """Menos tiempo en la ventana, menos descomposicion. Y sus dos extremos."""
+
+    tiempos = [1.0, 5.0, 20.0, 50.0, 200.0, 10_000.0]
+    fracciones = [mag.fraccion_eutectoide(t) for t in tiempos]
+    assert np.all(np.diff(fracciones) > 0.0)
+    assert mag.fraccion_eutectoide(0.0) == 0.0
+    assert fracciones[-1] > 0.99, "un enfriamiento de horas la descompone entera"
+    with pytest.raises(ValueError):
+        mag.fraccion_eutectoide(-1.0)
+
+
+def test_el_enfriado_de_este_ensayo_cae_entre_las_dos_cotas() -> None:
+    """No es temple ni es lento: el numero central existe y esta en medio."""
+
+    v = mag.veredicto_de_temple(cuerpo=mag.CRISOL_ENSAYO)
+    fraccion = mag.fraccion_eutectoide(float(v["tiempo_en_ventana_eutectoide_s"]))
+    assert 0.15 < fraccion < 0.85, (
+        f"la fraccion estimada es {fraccion:.2f}; si se pegase a 0 o a 1 no "
+        "haria falta reportar dos cotas"
+    )
+    # Y volcando el aglomerado solo, se acerca mucho mas al temple.
+    solo = mag.veredicto_de_temple(cuerpo=mag.AGLOMERADO_SOLO)
+    fraccion_solo = mag.fraccion_eutectoide(
+        float(solo["tiempo_en_ventana_eutectoide_s"])
+    )
+    assert fraccion_solo < 0.5 * fraccion
+
+
+def test_la_ficha_declara_lo_que_el_enfriado_no_modela() -> None:
+    """Reoxidacion, combustion del char y gradientes: no estan, y se dice."""
+
+    texto = " ".join(mag.NO_MODELADO_AL_ENFRIAR).lower()
+    assert "reoxidacion" in texto
+    assert "char" in texto
+    assert "gradientes" in texto
+
+
 # --- Falsadores contra la corrida real -------------------------------------
 #
 # Observacion del usuario, textual:

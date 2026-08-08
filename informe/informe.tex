@@ -58,7 +58,10 @@ cuatro observaciones cualitativas de laboratorio y con la curva medida de
 pérdida de masa de ocho puntos, que ahora reproduce con menos de dos puntos
 porcentuales de RMS. La cuarta observación ---que el aglomerado sigue pegándose al imán al final
 del ensayo--- destapó que la frontera de reducción de la magnetita estaba
-equivocada por un factor 42. \ojo{No existe caracterización del aglomerado después del
+equivocada por un factor 42. Las fases se tabulan \textbf{para cada instante de
+extracción}, y por separado el estado dentro de la mufla y el que se recupera
+tras enfriar, porque entre los \SI{900}{\celsius} y la mesa la wüstita se
+descompone. \ojo{No existe caracterización del aglomerado después del
 ensayo: todo campo que produce el programa es predicción}, y el informe distingue
 en todo momento lo que descansa en evidencia de lo que no.
 \end{abstract}
@@ -566,6 +569,78 @@ aglomerado después del ensayo. La observación sirve para \emph{falsar}: dos
 pruebas automáticas exigen que la magnetización final sea positiva y menor que
 el máximo, y cualquier recalibración futura que apague el imán antes de los
 \SI{720}{\second} queda refutada.
+
+\subsection{Qué se recupera: las fases a temperatura ambiente}
+\label{sec:enfriado}
+
+Todo lo anterior es el estado \emph{dentro} de la mufla. Lo que el laboratorio
+tiene en la mano es otra cosa, porque entre los \SI{900}{\celsius} y la mesa hay
+una transformación que sí ocurre: por debajo de \SI{570}{\celsius} la wüstita
+deja de ser estable y se descompone,
+$4\,\mathrm{FeO} \rightarrow \mathrm{Fe_3O_4} + \mathrm{Fe}$.
+
+Es la \emph{única} que hay. La ilmenita, la titanohematita, el char y las
+cenizas no tienen ninguna ruta accesible en ese intervalo, así que bajan
+congelados.
+
+\begin{table}[H]
+\centering\small
+\input{tabla_fen_fases_tiempo}
+\caption{Inventario de fases \textbf{dentro de la mufla}, en \si{\milli\gram},
+para cada instante de extracción. A partir de los \SI{150}{\second} no cambia
+nada más: se agotó el reductor.}
+\label{tab:fases-tiempo}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\input{tabla_fen_enfriado}
+\caption{Lo que se \textbf{recupera a temperatura ambiente}, según qué le pase a
+la wüstita al enfriar. «Temple» la conserva entera; «lento» la descompone del
+todo en magnetita y hierro. La lectura real está entre las dos columnas, y más
+cerca de la de temple cuanto más rápido se enfríe. Las fases que no aparecen
+---volátil, char, ceniza, ilmenita--- son las mismas del
+cuadro~\ref{tab:fases-tiempo}: no cambian al enfriar.}
+\label{tab:enfriado}
+\end{table}
+
+\paragraph{Dónde cae este ensayo entre las dos columnas.} Con la curva de
+enfriamiento del crisol, el cuerpo pasa \datEnfriaVentana\ \si{\second} dentro
+de la ventana en que el eutectoide puede operar. Aplicando una ley de
+Avrami anclada en las dos únicas fracciones medidas que se han encontrado
+(Zorc, Nagode y Kosec, 2024: \num{0.17} de wüstita retenida enfriando a
+\SI{100}{\celsius\per\minute} y \num{0.41} a \SI{1000}{\celsius\per\minute}),
+sale que se descompondría en torno al \datFraccionEutectoide\,\% de la wüstita:
+más o menos a mitad de camino entre las dos columnas.
+
+\ojo{Ese número no es un resultado, es una ilustración.} Depende de un supuesto
+sobre cuánta wüstita había en las probetas de esa referencia, y sus muestras son
+capas de óxido sobre acero, no un aglomerado carbón--mineral. El resultado que
+este informe defiende son \textbf{las dos cotas}; el valor intermedio sólo dice
+que el caso real no está pegado a ninguna de ellas.
+
+\paragraph{Lo que el enfriado hace y este modelo no recoge.} Tres cosas, y las
+tres se declaran porque van en direcciones distintas:
+
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+\item \textbf{Reoxidación en aire.} El aglomerado sale a \SI{900}{\celsius} y se
+enfría al aire. Su superficie puede reoxidarse ---magnetita a hematita o
+maghemita, hierro metálico a óxido---, lo que restaría magnetismo a las dos
+cotas, y más a la de enfriamiento lento, que pasa más tiempo caliente.
+\item \textbf{Combustión del char.} Quedan \datCarbono\ \si{\milli\gram} de
+carbono fijo y salen al aire incandescentes. Lo que arda quita masa \emph{no}
+magnética y por tanto \emph{sube} la magnetización específica sin cambiar
+ninguna fase de hierro.
+\item \textbf{Gradientes dentro del cuerpo.} La curva de enfriamiento es de
+capacidad concentrada: da una sola temperatura. La superficie cruza el
+eutectoide antes que el núcleo, así que la descomposición no es uniforme y el
+DRX de un polvo molido daría una media de estados distintos.
+\end{itemize}
+
+\noindent
+Las tres se cierran con la misma medida: un DRX del aglomerado recuperado, a dos
+o tres tiempos. Es lo que convertiría el cuadro~\ref{tab:enfriado} de predicción
+en resultado.
 
 \subsection{Lo que el modelo todavía no explica}
 \label{sec:discrepancia}
