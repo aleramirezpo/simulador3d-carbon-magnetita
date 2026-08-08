@@ -1304,3 +1304,55 @@ char al salir incandescente (subiría la magnetización específica sin cambiar
 ninguna fase de hierro) y los gradientes internos (la superficie cruza el
 eutectoide antes que el núcleo). Las tres se cierran con lo mismo: un DRX del
 aglomerado recuperado a dos o tres tiempos.
+
+### 19.11 CON TAPA O SIN TAPA: QUÉ ENFRIADO DEJA EL AGLOMERADO MÁS MAGNÉTICO
+
+El usuario aportó el **objetivo del material**: se va a usar como adsorbente y
+después hay que recuperarlo con un imán. Eso cambia la pregunta. No se trata de
+conservar el estado de la mufla, sino de **maximizar la respuesta al imán**, y
+para ese objetivo la respuesta se invierte.
+
+> Todo lo que devuelve wüstita a magnetita **suma** magnetismo, porque la
+> wüstita no responde al imán y la magnetita sí. Lo único que resta es el aire,
+> que oxida magnetita a hematita. Conviene enfriar **despacio y con la tapa
+> puesta**, justo lo contrario de lo que haría falta para fotografiar el estado
+> de la mufla.
+
+Con la tapa puesta pasan tres cosas distintas, y no hay que mezclarlas:
+
+1. **Desaparece la reoxidación por aire** y la combustión del char: dos de los
+   tres límites de §19.10 se van.
+2. **Aparece otra reoxidación, la del propio gas encerrado, y juega a favor.**
+   La frontera Fe₃O₄/FeO *sube* al bajar la temperatura —0,322 a 900 °C, 0,456 a
+   700, 0,589 en el eutectoide— mientras el gas se queda donde estaba. Un gas
+   que a 900 °C estaba sobre la frontera pasa a ser oxidante al enfriarse:
+   3 FeO + CO₂ → Fe₃O₄ + CO. El tope es el inventario de CO₂ del crisol, que
+   alcanza para el **22 %** de la wüstita, y el proceso se autolimita porque al
+   oxidar sube x_CO hasta reencontrar la frontera.
+3. **Térmicamente la tapa frena poco**: son 15,87 g de 48,54.
+
+| Ruta | ventana (s) | eutect. | Fe₃O₄ | FeO | Fe | Fe₂O₃ | M_s | rel. |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Volcado fuera del crisol | 4 | 9 % | 172,1 | 29,6 | 6,09 | 9,4 | **22,9** | 100 % |
+| Al aire, sin tapa | 34 | 38 % | 179,2 | 20,3 | 7,90 | 9,8 | **24,2** | 106 % |
+| Al aire, con tapa | 50 | 47 % | 196,1 | 13,5 | 7,83 | 0 | **26,3** | 115 % |
+| En la mufla apagada, con tapa | 1275 | 100 % | 206,9 | 0 | 10,44 | 0 | **28,3** | 124 % |
+
+(masas en mg, M_s en A m²/kg)
+
+**El contrapeso, declarado**: la ruta más magnética es también la que deja más
+**hierro metálico**, 10,4 mg. Es la fase menos estable en medio acuoso —se
+corroe, pierde magnetismo con el tiempo y suelta Fe²⁺ al sistema—, así que si la
+adsorción es en agua parte de la ganancia se perderá y además introduce una
+variable nueva. «Al aire, con tapa» conserva casi todo el beneficio con la mitad
+de hierro metálico.
+
+**Qué tan firme es.** El *orden* de las cuatro rutas es robusto: sale de que la
+wüstita vale 0 y la magnetita 92 A m²/kg, que es dato de tabla. Los valores no:
+dependen de la cinética del eutectoide, anclada en dos puntos de una referencia
+sobre capas de óxido en acero, y de una fracción de oxidación al aire que es un
+orden de magnitud declarado (CALIBRABLE, 0-20 %). El cuadro sostiene la
+dirección y el tamaño del efecto, no la tercera cifra.
+
+**Y medirlo cuesta poco**: dos aglomerados del mismo tiempo de mufla, uno
+enfriado tapado y otro destapado, y un VSM.

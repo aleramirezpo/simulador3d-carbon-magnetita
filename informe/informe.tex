@@ -642,6 +642,79 @@ Las tres se cierran con la misma medida: un DRX del aglomerado recuperado, a dos
 o tres tiempos. Es lo que convertiría el cuadro~\ref{tab:enfriado} de predicción
 en resultado.
 
+\subsection{Con tapa o sin tapa: qué enfriado deja el aglomerado más magnético}
+\label{sec:rutas}
+
+Esta pregunta la trae el uso previsto del material. Si el aglomerado se va a
+emplear como adsorbente y luego hay que recuperarlo con un imán, lo que interesa
+no es conservar el estado que había a \SI{900}{\celsius}: es \textbf{maximizar la
+respuesta al imán}. Y para ese objetivo la respuesta se da la vuelta.
+
+\begin{clave}
+Todo lo que devuelve wüstita a magnetita \emph{suma} magnetismo, porque la
+wüstita no responde al imán y la magnetita sí. Lo único que resta es el aire,
+que oxida magnetita a hematita. De modo que conviene enfriar \textbf{despacio y
+con la tapa puesta} ---justo lo contrario de lo que haría falta para fotografiar
+el estado de la mufla.
+\end{clave}
+
+\noindent
+Con la tapa puesta pasan tres cosas distintas y conviene no mezclarlas:
+
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+\item \textbf{Desaparece la reoxidación por aire} y la combustión del char. Dos
+de los tres límites de \S\ref{sec:enfriado} se van.
+\item \textbf{Aparece otra reoxidación, la del propio gas del crisol}, y ésta
+juega a favor. La frontera Fe$_3$O$_4$/FeO \emph{sube} al bajar la temperatura
+---\num{0.322} a \SI{900}{\celsius}, \num{0.456} a \SI{700}{\celsius},
+\num{0.589} en el eutectoide--- mientras el gas se queda donde estaba. Un gas
+que a \SI{900}{\celsius} estaba sobre la frontera pasa a ser oxidante al
+enfriarse y devuelve wüstita a magnetita:
+$3\,\mathrm{FeO} + \mathrm{CO_2} \rightarrow \mathrm{Fe_3O_4} + \mathrm{CO}$.
+El tope lo pone el inventario de CO$_2$ que quepa en el crisol: alcanza para el
+\datReoxidaGas\,\% de la wüstita.
+\item \textbf{Térmicamente la tapa frena poco.} Son \qty{15.87}{\gram} de
+\qty{48.54}{\gram}: sin ella el conjunto cruza el eutectoide algo más rápido,
+pero no cambia de orden de magnitud.
+\end{enumerate}
+
+\begin{table}[H]
+\centering\small
+\input{tabla_fen_rutas_enfriado}
+\caption{Las cuatro rutas de enfriado, ordenadas por lo magnético que dejan el
+producto. «Ventana» es el tiempo dentro de 570--\SI{400}{\celsius}, donde el
+eutectoide puede operar; «eutect.» es la fracción de wüstita que alcanza a
+descomponerse. La última columna es la magnetización relativa a la ruta más
+rápida.}
+\label{tab:rutas}
+\end{table}
+
+\paragraph{La recomendación, y lo que cuesta.} Entre la ruta más rápida y la más
+lenta hay un \datMagnetGananciaRuta\,\% de magnetización:
+\datMagnetPeorRuta\ frente a \datMagnetMejorRuta\
+\si{\ampere\meter\squared\per\kilo\gram}. Para el uso previsto merece la pena, y
+además todas las rutas quedan holgadamente por encima de lo que un imán de mano
+necesita para recuperar un adsorbente.
+
+\ojo{Pero hay un contrapeso que hay que declarar.} La ruta más magnética es
+también la que deja más \textbf{hierro metálico}: \datFeMetalMejorRuta\
+\si{\milli\gram}. El hierro metálico es la fase menos estable de todas en medio
+acuoso ---se corroe, pierde su magnetismo con el tiempo y libera Fe$^{2+}$ al
+sistema---, de modo que si el ensayo de adsorción es en agua, parte de esa
+ganancia se perderá y además introduce una variable nueva. Si eso importa, la
+ruta «al aire, con tapa» conserva casi todo el beneficio con la mitad de hierro
+metálico.
+
+\paragraph{Qué tan firme es esto.} El orden de las cuatro rutas es robusto: sale
+de que la wüstita vale 0 y la magnetita 92
+\si{\ampere\meter\squared\per\kilo\gram}, que es dato de tabla. Los valores
+concretos no lo son: dependen de la cinética del eutectoide, que está anclada en
+dos puntos de una referencia sobre capas de óxido en acero, y de una fracción de
+oxidación al aire que es un orden de magnitud declarado, no una medida. Lo que
+este cuadro sostiene es \textbf{la dirección y el tamaño aproximado del efecto},
+no la tercera cifra. Medirlo cuesta poco: dos aglomerados del mismo tiempo de
+mufla, uno enfriado tapado y otro destapado, y un VSM.
+
 \subsection{Lo que el modelo todavía no explica}
 \label{sec:discrepancia}
 
@@ -736,8 +809,11 @@ horas y no se completó.
 \paragraph{Pruebas automáticas.}
 \input{n_pruebas} Las de los módulos del navegador construyen el objeto real bajo
 Node y miden lo que sale; el contrato binario cliente--servidor se verifica de
-extremo a extremo. Nueve pruebas fijan el contraste experimental y sirven para
-\emph{falsar}.
+extremo a extremo. Trece pruebas fijan el contraste experimental y sirven para
+\emph{falsar}: las tres de la cronología, las de la curva de masa y las de la
+prueba del imán. Una de ellas está marcada \texttt{xfail} a propósito: es la
+discrepancia abierta de \S\ref{sec:discrepancia}, y avisará el día en que el
+modelo la reproduzca.
 
 \section{Análisis}
 
@@ -766,11 +842,14 @@ estimación analítica independiente de la ficha del proyecto.
 \subsection{Lo que no se sostiene}
 
 \begin{itemize}[leftmargin=*,itemsep=2pt]
-\item \ojo{Ninguna fracción de fase después del ensayo.} No hay DRX, Mössbauer ni
-SEM del aglomerado. La tabla~\ref{tab:fases} es predicción íntegra.
+\item \ojo{Ninguna fracción de fase medida después del ensayo.} No hay DRX,
+Mössbauer ni SEM del aglomerado. Lo único que hay del producto es la prueba del
+imán, y es cualitativa: basta para descartar que la magnetita se agote ---y así
+se descartó---, pero no para fijar el reparto entre las fases. Los
+cuadros~\ref{tab:fases}, \ref{tab:enfriado} y \ref{tab:rutas} son predicción.
 \item \textbf{El factor de hinchamiento absoluto}: sin dilatometría no hay forma
 de saber si son \num{1.3} o \num{2.2}.
-\item \textbf{El cierre de masa al \qty{1.88}{\percent}}, que es hidrógeno creado
+\item \textbf{El cierre de masa al \qty{1.65}{\percent}}, que es hidrógeno creado
 al agrupar el alquitrán en metano conservando carbono y no masa. \emph{No se
 corrigió}: renormalizar movería una curva ya ajustada, y eso es decisión de
 modelo.

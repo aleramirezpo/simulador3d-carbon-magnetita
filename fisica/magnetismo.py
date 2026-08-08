@@ -204,6 +204,25 @@ CRISOL_ENSAYO: dict[str, float] = {
     "conductividad_W_m_K": 16.0,
 }
 
+# El mismo crisol SIN la tapa. Pesa un tercio menos y por eso se enfría más
+# rápido; el área cambia poco, porque la boca abierta radia por la cavidad casi
+# lo mismo que radiaba el disco de la tapa. Sirve para separar el efecto térmico
+# de la tapa del efecto químico, que es el que de verdad importa (véase
+# `reoxidacion_con_la_tapa_puesta`).
+CRISOL_SIN_TAPA: dict[str, float] = {
+    "masa_kg": 32.67e-3,
+    "calor_especifico_J_kg_K": 500.0,
+    "area_m2": (
+        math.pi * (0.0125 + 0.01475) * math.hypot(0.032, 0.01475 - 0.0125)
+        + math.pi * 0.0125**2
+        + math.pi * 0.01475**2
+    ),
+    "longitud_caracteristica_m": 0.032,
+    "volumen_solido_m3": 32.67e-3 / 8400.0,
+    "emisividad": 0.80,
+    "conductividad_W_m_K": 16.0,
+}
+
 # El aglomerado solo, si se volcase fuera del crisol: disco de 22,8 mm de
 # diámetro y ~5,4 mm de altura (el lecho hinchado), 0,72 g, Cp ~1000 J/kg/K.
 AGLOMERADO_SOLO: dict[str, float] = {
@@ -406,6 +425,75 @@ NO_MODELADO_AL_ENFRIAR = (
 )
 
 
+# Volumen libre dentro del crisol tapado, medido sobre la corrida: las celdas de
+# lecho y de gas suman 15,47 cm3.
+VOLUMEN_LIBRE_CRISOL_M3 = 15.47e-6
+
+# Composición del gas residual al final de la corrida, en fracciones del total.
+# Sólo importan las especies OXIDANTES frente a la wüstita, CO2 y H2O.
+FRACCION_OXIDANTE_GAS_RESIDUAL = 0.207
+
+
+def reoxidacion_con_la_tapa_puesta(
+    moles_FeO: float,
+    *,
+    volumen_libre_m3: float = VOLUMEN_LIBRE_CRISOL_M3,
+    T_K: float = 1173.15,
+    fraccion_oxidante: float = FRACCION_OXIDANTE_GAS_RESIDUAL,
+    presion_Pa: float = 101325.0,
+) -> dict[str, Any]:
+    """Cuánta wüstita puede devolver a magnetita el gas encerrado al enfriar.
+
+    Con la tapa puesta pasan tres cosas distintas, y conviene no mezclarlas:
+
+    1. **Desaparece la reoxidación por aire** y la combustión del char. La tapa
+       es buena noticia para la limpieza de la predicción.
+    2. **Aparece otra reoxidación, por el propio gas del crisol.** La frontera
+       Fe3O4/FeO sube al bajar la temperatura --- 0,322 a 900 grados C, 0,456 a
+       700, 0,589 en el eutectoide ---, mientras el gas se queda donde estaba.
+       Es decir, un gas que a 900 grados C estaba justo en la frontera pasa a
+       ser oxidante conforme el crisol se enfría, y devuelve wüstita a
+       magnetita: 3 FeO + CO2 -> Fe3O4 + CO.
+    3. El proceso **se autolimita**: al oxidar consume CO2 y produce CO, con lo
+       que sube x_CO hasta reencontrar la frontera. El tope real es, por tanto,
+       el inventario de oxidante que quepa en el crisol.
+
+    Esa es la cuenta que hace esta función. Va en la MISMA dirección que el
+    eutectoide: las dos devuelven magnetismo.
+
+    OJO con usar el inventario de gas de la corrida para esto. El venteo del
+    modelo es un sumidero de una sola dirección, así que al final del cálculo el
+    crisol queda casi vacío ---unos 380 Pa--- y su inventario subestimaría la
+    capacidad en tres órdenes de magnitud. Aquí se supone el crisol lleno a la
+    presión que le corresponde, que es lo físico.
+    """
+
+    n_FeO = float(moles_FeO)
+    if not math.isfinite(n_FeO) or n_FeO < 0.0:
+        raise ValueError("moles_FeO debe ser finito y no negativo")
+    if not 0.0 <= float(fraccion_oxidante) <= 1.0:
+        raise ValueError("fraccion_oxidante debe pertenecer a [0, 1]")
+
+    R = 8.314462618
+    n_gas = float(presion_Pa) * float(volumen_libre_m3) / (R * float(T_K))
+    n_oxidante = n_gas * float(fraccion_oxidante)
+    # 3 FeO + CO2 -> Fe3O4 + CO: tres moles de wüstita por mol de oxidante.
+    n_convertible = 3.0 * n_oxidante
+    fraccion = 0.0 if n_FeO <= 0.0 else min(1.0, n_convertible / n_FeO)
+    return {
+        "moles_gas": n_gas,
+        "moles_oxidante": n_oxidante,
+        "moles_FeO_convertibles": n_convertible,
+        "fraccion_de_la_wustita": fraccion,
+        "reaccion": "3 FeO + CO2 -> Fe3O4 + CO",
+        "nota": (
+            "Cota de CAPACIDAD, no de cinetica: dice cuanta wustita alcanzaria a "
+            "reoxidar el gas encerrado, no cuanta lo hace en el tiempo del "
+            "enfriado. Va en la misma direccion que el eutectoide."
+        ),
+    }
+
+
 def fases_tras_enfriar(
     solido_mol_m3: Mapping[str, Any],
     volumen_celda_m3: Any,
@@ -594,6 +682,131 @@ def cotas_magnetizacion_Am2_kg(
             solido_mol_m3, volumen_celda_m3, wustita_descompuesta=1.0, **comun
         ),
     }
+
+
+# Enfriamiento lento dentro de la mufla apagada. No se ha medido la curva de
+# este horno: 8 °C/min es un valor representativo de una mufla de laboratorio de
+# ~2 kW con la puerta cerrada, y se usa sólo como COTA de enfriamiento lento.
+VELOCIDAD_MUFLA_APAGADA_C_MIN = 8.0
+
+# CALIBRABLE. Fracción de la magnetita que llega a reoxidarse a hematita en la
+# superficie cuando el aglomerado se enfría destapado, expuesto al aire. No hay
+# medida de esta muestra: es un orden de magnitud para poder comparar rutas, y
+# el rango cubre desde despreciable hasta una costra apreciable. Su efecto es el
+# contrario al de todo lo demás: RESTA magnetismo.
+FRACCION_REOXIDADA_AL_AIRE = 0.05
+RANGO_FRACCION_REOXIDADA_AL_AIRE = (0.0, 0.20)
+
+
+def _magnetizacion_de_ruta(
+    solido_mol_m3: Mapping[str, Any],
+    volumen_celda_m3: Any,
+    *,
+    f_eutectoide: float,
+    f_reoxidacion_gas: float = 0.0,
+    f_oxidacion_aire: float = 0.0,
+) -> dict[str, float]:
+    """Fases y magnetización tras una ruta de enfriado concreta.
+
+    Se aplican en orden: la reoxidación de la wüstita por el gas encerrado
+    (3 FeO + CO2 -> Fe3O4 + CO), el eutectoide sobre lo que quede de wüstita
+    (4 FeO -> Fe3O4 + Fe) y, si el cuerpo está destapado, la oxidación
+    superficial de la magnetita al aire (4 Fe3O4 + O2 -> 6 Fe2O3).
+    """
+
+    moles = fases_tras_enfriar(solido_mol_m3, volumen_celda_m3, 0.0)
+
+    n_FeO = moles["FeO"]
+    if f_reoxidacion_gas > 0.0 and n_FeO > 0.0:
+        convertida = min(1.0, f_reoxidacion_gas) * n_FeO
+        moles["FeO"] = n_FeO - convertida
+        moles["Fe3O4"] += convertida / 3.0
+
+    n_FeO = moles["FeO"]
+    if f_eutectoide > 0.0 and n_FeO > 0.0:
+        transformada = min(1.0, f_eutectoide) * n_FeO
+        moles["FeO"] = n_FeO - transformada
+        moles["Fe3O4"] += 0.25 * transformada
+        moles["Fe"] += 0.25 * transformada
+
+    if f_oxidacion_aire > 0.0 and moles["Fe3O4"] > 0.0:
+        oxidada = min(1.0, f_oxidacion_aire) * moles["Fe3O4"]
+        moles["Fe3O4"] -= oxidada
+        moles["Fe2O3"] += 1.5 * oxidada
+
+    masa = sum(n * MASAS_MOLARES_SOLIDO_KG_MOL[f] for f, n in moles.items())
+    momento = sum(
+        n * MASAS_MOLARES_SOLIDO_KG_MOL[f] * MAGNETIZACION_SATURACION_Am2_kg.get(f, 0.0)
+        for f, n in moles.items()
+    )
+    momento += (
+        MS_TITANOHEMATITA_Am2_kg
+        * _RAZON_R3_SOBRE_ILMENITA
+        * moles.get("FeTiO3", 0.0)
+        * MASAS_MOLARES_SOLIDO_KG_MOL["FeTiO3"]
+    )
+    # Las masas molares están en kg/mol: para miligramos hace falta 1e6.
+    return {
+        "Fe3O4_mg": 1.0e6 * moles["Fe3O4"] * MASAS_MOLARES_SOLIDO_KG_MOL["Fe3O4"],
+        "FeO_mg": 1.0e6 * moles["FeO"] * MASAS_MOLARES_SOLIDO_KG_MOL["FeO"],
+        "Fe_mg": 1.0e6 * moles["Fe"] * MASAS_MOLARES_SOLIDO_KG_MOL["Fe"],
+        "Fe2O3_mg": 1.0e6 * moles["Fe2O3"] * MASAS_MOLARES_SOLIDO_KG_MOL["Fe2O3"],
+        "masa_g": 1000.0 * masa,
+        "magnetizacion_Am2_kg": momento / masa if masa > 0.0 else 0.0,
+    }
+
+
+def evaluacion_rutas_de_enfriado(
+    solido_mol_m3: Mapping[str, Any], volumen_celda_m3: Any
+) -> list[dict[str, Any]]:
+    """Compara las rutas de enfriado por lo magnético que dejan el aglomerado.
+
+    El criterio no es aquí conservar el estado de \\SI{900}{\\celsius}: es
+    **maximizar la respuesta al imán**, porque de eso depende poder recuperar el
+    material con un imán después de usarlo como adsorbente.
+
+    Y el resultado es contraintuitivo. Todo lo que devuelve wüstita a magnetita
+    ---el eutectoide y la reoxidación por el gas encerrado--- SUMA magnetismo,
+    porque la wüstita no responde al imán y la magnetita sí. Lo único que resta
+    es el aire, que oxida magnetita a hematita. De modo que, para este objetivo,
+    conviene **enfriar despacio y con la tapa puesta**, justo lo contrario de lo
+    que haría falta para fotografiar el estado de la mufla.
+    """
+
+    n_FeO = fases_tras_enfriar(solido_mol_m3, volumen_celda_m3, 0.0)["FeO"]
+    tope_gas = reoxidacion_con_la_tapa_puesta(n_FeO)["fraccion_de_la_wustita"]
+
+    def ventana(cuerpo):
+        return float(
+            veredicto_de_temple(cuerpo=cuerpo)["tiempo_en_ventana_eutectoide_s"]
+        )
+
+    # 570 -> 400 °C son 170 K; a velocidad constante, el tiempo en la ventana.
+    ventana_mufla = 170.0 / VELOCIDAD_MUFLA_APAGADA_C_MIN * 60.0
+
+    rutas = (
+        ("Volcado fuera del crisol", ventana(AGLOMERADO_SOLO), 0.0, FRACCION_REOXIDADA_AL_AIRE),
+        ("Al aire, sin tapa", ventana(CRISOL_SIN_TAPA), 0.0, FRACCION_REOXIDADA_AL_AIRE),
+        ("Al aire, con tapa", ventana(CRISOL_ENSAYO), tope_gas, 0.0),
+        ("En la mufla apagada, con tapa", ventana_mufla, tope_gas, 0.0),
+    )
+
+    salida: list[dict[str, Any]] = []
+    for nombre, t_ventana, f_gas, f_aire in rutas:
+        f_eut = fraccion_eutectoide(t_ventana)
+        estado = _magnetizacion_de_ruta(
+            solido_mol_m3, volumen_celda_m3,
+            f_eutectoide=f_eut, f_reoxidacion_gas=f_gas, f_oxidacion_aire=f_aire,
+        )
+        salida.append({
+            "ruta": nombre,
+            "tiempo_en_ventana_s": t_ventana,
+            "fraccion_eutectoide": f_eut,
+            "fraccion_reoxidada_por_gas": f_gas,
+            "fraccion_oxidada_al_aire": f_aire,
+            **estado,
+        })
+    return salida
 
 
 def resumen(

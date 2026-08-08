@@ -237,6 +237,84 @@ def test_la_ficha_declara_lo_que_el_enfriado_no_modela() -> None:
     assert "gradientes" in texto
 
 
+# --- Con tapa o sin tapa: que ruta deja el aglomerado mas magnetico ---------
+
+
+def test_sin_tapa_el_crisol_se_enfria_mas_rapido() -> None:
+    """Pesa un tercio menos y el area apenas cambia."""
+
+    con = mag.veredicto_de_temple(cuerpo=mag.CRISOL_ENSAYO)
+    sin = mag.veredicto_de_temple(cuerpo=mag.CRISOL_SIN_TAPA)
+    assert sin["velocidad_en_eutectoide_C_min"] > con["velocidad_en_eutectoide_C_min"]
+    assert sin["tiempo_en_ventana_eutectoide_s"] < con["tiempo_en_ventana_eutectoide_s"]
+    # Pero no es un salto de orden de magnitud: la tapa son 15,87 g de 48,54.
+    assert sin["velocidad_en_eutectoide_C_min"] < 2.0 * con["velocidad_en_eutectoide_C_min"]
+
+
+def test_el_gas_encerrado_puede_reoxidar_parte_de_la_wustita() -> None:
+    """La tapa no solo aisla del aire: su propio gas devuelve wustita a magnetita.
+
+    La frontera Fe3O4/FeO sube al bajar la temperatura, asi que un gas que a
+    900 grados C estaba sobre ella pasa a ser oxidante al enfriarse. El tope lo
+    pone el inventario de CO2 que quepa en el crisol.
+    """
+
+    n_FeO = 4.54e-4  # mol, los 32,6 mg del final de la corrida
+    r = mag.reoxidacion_con_la_tapa_puesta(n_FeO)
+    assert 0.05 < r["fraccion_de_la_wustita"] < 0.60, (
+        "ni despreciable ni suficiente para toda la wustita: por eso hay que "
+        "contarlo y no ignorarlo"
+    )
+    # Con menos wustita, la misma capacidad de gas cubre una fraccion mayor.
+    assert (
+        mag.reoxidacion_con_la_tapa_puesta(n_FeO / 10.0)["fraccion_de_la_wustita"]
+        > r["fraccion_de_la_wustita"]
+    )
+    with pytest.raises(ValueError):
+        mag.reoxidacion_con_la_tapa_puesta(-1.0)
+
+
+def test_enfriar_despacio_y_con_tapa_deja_el_aglomerado_mas_magnetico() -> None:
+    """El resultado contraintuitivo, y el que interesa para la adsorcion.
+
+    Si lo que se busca es recuperar el material con un iman, conviene lo
+    CONTRARIO de lo que haria falta para conservar el estado de la mufla: todo
+    lo que devuelve wustita a magnetita suma magnetismo, y lo unico que resta es
+    el aire, que oxida magnetita a hematita.
+    """
+
+    solido = _solido(Fe3O4=770.0, FeO=454.0, Fe=98.0, C=33_000.0, FeTiO3=182.0)
+    rutas = {r["ruta"]: r for r in mag.evaluacion_rutas_de_enfriado(solido, V)}
+
+    rapida = rutas["Volcado fuera del crisol"]["magnetizacion_Am2_kg"]
+    lenta = rutas["En la mufla apagada, con tapa"]["magnetizacion_Am2_kg"]
+    assert lenta > rapida, "enfriar despacio y tapado deja MAS magnetismo, no menos"
+    assert lenta > 1.10 * rapida, "y la diferencia no es marginal"
+
+    # Orden completo: cuanto mas tiempo en la ventana y mejor tapado, mas.
+    orden = [
+        "Volcado fuera del crisol",
+        "Al aire, sin tapa",
+        "Al aire, con tapa",
+        "En la mufla apagada, con tapa",
+    ]
+    valores = [rutas[n]["magnetizacion_Am2_kg"] for n in orden]
+    assert np.all(np.diff(valores) > 0.0)
+
+    # Y el contrapeso que hay que declarar: la ruta mas magnetica es tambien la
+    # que mas hierro metalico deja, que es la fase menos estable en agua.
+    assert rutas[orden[-1]]["Fe_mg"] > rutas[orden[0]]["Fe_mg"]
+
+
+def test_solo_el_aire_resta_magnetismo() -> None:
+    """Destapado se forma hematita, que es la unica fase que va en contra."""
+
+    solido = _solido(Fe3O4=770.0, FeO=454.0, C=33_000.0)
+    rutas = {r["ruta"]: r for r in mag.evaluacion_rutas_de_enfriado(solido, V)}
+    assert rutas["Al aire, sin tapa"]["Fe2O3_mg"] > 0.0
+    assert rutas["Al aire, con tapa"]["Fe2O3_mg"] == 0.0
+
+
 # --- Falsadores contra la corrida real -------------------------------------
 #
 # Observacion del usuario, textual:

@@ -259,6 +259,53 @@ def tabla_enfriado(datos):
     ))
 
 
+def tabla_rutas_de_enfriado(datos):
+    """Compara las rutas de enfriado por lo magnético que dejan el aglomerado.
+
+    Es la pregunta del laboratorio: si el material se va a usar como adsorbente
+    y luego hay que recuperarlo con un imán, ¿con tapa o sin tapa?, ¿deprisa o
+    despacio?
+    """
+    from fisica import magnetismo as mag
+
+    ultima = datos["instantaneas"][-1][1]
+    volumen = float(np.prod(datos["paso_malla_mm"])) * 1.0e-9
+    solido = {f: np.asarray(v) for f, v in ultima["solido"].items()}
+    rutas = mag.evaluacion_rutas_de_enfriado(solido, volumen)
+
+    peor = min(r["magnetizacion_Am2_kg"] for r in rutas)
+    filas = []
+    for r in rutas:
+        filas.append(
+            rf"    {r['ruta']} & {num(r['tiempo_en_ventana_s'], 0)} & "
+            rf"{num(100.0 * r['fraccion_eutectoide'], 0)} & "
+            rf"{num(r['Fe3O4_mg'], 1)} & {num(r['FeO_mg'], 1)} & "
+            rf"{num(r['Fe_mg'], 2)} & {num(r['Fe2O3_mg'], 1)} & "
+            rf"\textbf{{{num(r['magnetizacion_Am2_kg'], 1)}}} & "
+            rf"{num(100.0 * r['magnetizacion_Am2_kg'] / peor, 0)} \\"
+        )
+
+    mejor = max(rutas, key=lambda r: r["magnetizacion_Am2_kg"])
+    macro("datMagnetMejorRuta", num(mejor["magnetizacion_Am2_kg"], 1))
+    macro("datMagnetPeorRuta", num(peor, 1))
+    macro("datMagnetGananciaRuta", num(100.0 * mejor["magnetizacion_Am2_kg"] / peor - 100.0, 0))
+    macro("datFeMetalMejorRuta", num(mejor["Fe_mg"], 1))
+    con_tapa = next(r for r in rutas if r["ruta"] == "Al aire, con tapa")
+    macro("datReoxidaGas", num(100.0 * con_tapa["fraccion_reoxidada_por_gas"], 0))
+
+    escribir("tabla_fen_rutas_enfriado.tex", (
+        r"\begin{tabular}{lrrrrrrrr}" "\n"
+        r"    \hline" "\n"
+        r"    Ruta de enfriado & ventana & eutect. & Fe$_3$O$_4$ & FeO & Fe"
+        r" & Fe$_2$O$_3$ & $M_s$ & rel. \\" "\n"
+        r"     & [s] & [\%] & \multicolumn{4}{c}{[mg]} & [A m$^2$/kg] & [\%] \\" "\n"
+        r"    \hline" "\n"
+        + "\n".join(filas) + "\n"
+        r"    \hline" "\n"
+        r"\end{tabular}"
+    ))
+
+
 def tabla_fronteras(datos):
     s = datos["serie"]
     fronteras = fronteras_co()
@@ -464,6 +511,7 @@ def main() -> int:
     tabla_fases(datos)
     tabla_fases_por_tiempo(datos)
     tabla_enfriado(datos)
+    tabla_rutas_de_enfriado(datos)
     tabla_fronteras(datos)
     tabla_cronologia(datos)
     tabla_adimensionales(datos)
