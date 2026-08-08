@@ -22,21 +22,30 @@ sys.path.insert(0, str(RAIZ))
 sys.path.insert(0, str(RAIZ.parent / "simulacion_v3" / "src"))
 
 from fisica.adaptador_v3 import MASAS_MOLARES_SOLIDO_KG_MOL  # noqa: E402
-from nucleo.salida import cargar_instantanea  # noqa: E402
+from interfaz.app import directorio_predeterminado  # noqa: E402
+from nucleo.salida import cargar_instantanea, recortar_a_la_corrida_vigente  # noqa: E402
 
 SALIDA = RAIZ / "informe"
 
 
 def serie_vigente(directorio):
+    """Instantáneas de la corrida VIGENTE, ordenadas por tiempo.
+
+    El recorte no se reimplementa aquí: lo hace `nucleo.salida`, que es de donde
+    lo toman también el visor y las pruebas. Mientras cada consumidor tuvo su
+    copia, el informe llegó a construirse sobre una carpeta con dos corridas
+    mezcladas mientras el sitio publicaba otra distinta.
+    """
     rutas = sorted(glob.glob(f"{directorio}/*.npz"))
     if not rutas:
         raise SystemExit(f"no hay instantáneas en {directorio}")
     cargadas = [(r, cargar_instantanea(r)) for r in rutas]
-    inicios = [r for r, c in cargadas if abs(float(c["t"])) <= 1e-12]
-    if inicios:
-        corte = max(os.stat(r).st_mtime_ns for r in inicios)
-        cargadas = [(r, c) for r, c in cargadas if os.stat(r).st_mtime_ns >= corte]
-    return sorted(((float(c["t"]), c) for _, c in cargadas), key=lambda e: e[0])
+    vigentes = recortar_a_la_corrida_vigente(
+        cargadas,
+        lambda par: float(par[1]["t"]),
+        lambda par: os.stat(par[0]).st_mtime_ns,
+    )
+    return sorted(((float(c["t"]), c) for _, c in vigentes), key=lambda e: e[0])
 
 
 def masa_solida_g(campos, volumen):
@@ -290,7 +299,10 @@ def n_pruebas():
 
 
 def main():
-    directorio = sys.argv[1] if len(sys.argv) > 1 else str(RAIZ / "resultados" / "simulacion_720s")
+    # Sin argumento se toma la corrida MÁS AVANZADA de `resultados/`, el mismo
+    # criterio que usa el visor. Apuntar a una carpeta fija hacía que el informe
+    # y el sitio publicado pudiesen describir corridas distintas.
+    directorio = sys.argv[1] if len(sys.argv) > 1 else str(directorio_predeterminado(RAIZ / "resultados"))
     serie = serie_vigente(directorio)
     primera = serie[0][1]
     volumen = (

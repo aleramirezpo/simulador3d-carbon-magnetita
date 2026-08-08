@@ -16,11 +16,24 @@
 \usepackage{enumitem}
 \usepackage{caption}
 
-\sisetup{output-decimal-marker={,}, group-separator={.}, group-minimum-digits=4}
+\sisetup{output-decimal-marker={,}, group-separator={.}, group-minimum-digits=4, group-digits=integer}
 \captionsetup{font=small, labelfont=bf}
 
 \definecolor{aviso}{HTML}{8B2314}
 \newcommand{\ojo}[1]{\textcolor{aviso}{\textbf{#1}}}
+
+% Cifras de la corrida, generadas por tablas_fenomenologia.py. Se comparten con
+% fenomenologia.tex para que los dos documentos no puedan discrepar: ninguna
+% cifra de este informe está escrita a mano.
+\input{macros_fenomenologia}
+
+% Bloque destacado. Se construye con reglas y no con \colorbox porque el
+% argumento de \colorbox es un grupo cerrado: no puede empezar en \begin y
+% terminar en \end de un entorno sin romper el agrupamiento de LaTeX.
+\newenvironment{clave}
+  {\par\medskip\noindent\rule{\linewidth}{0.9pt}\par\nobreak\smallskip
+   \noindent\ignorespaces}
+  {\par\smallskip\noindent\rule{\linewidth}{0.9pt}\par\medskip}
 
 \title{\vspace{-1.5cm}Simulación 3-D del aglomerado carbón--titanomagnetita\\
 \large Resultados, contraste experimental y análisis}
@@ -36,12 +49,16 @@
 Se simula el transporte de momentum, calor y masa acoplado a reacción química
 heterogénea en el ensayo de \SI{0.75}{\gram} de carbón y \SI{0.25}{\gram} de
 concentrado de titanomagnetita, en crisol Ni--Cr dentro de una mufla a
-\SI{900}{\celsius} durante \SI{720}{\second}. Se documentan doce defectos
-localizados y corregidos ---tres en la ecuación de energía, dos de ellos
-compensándose entre sí---, se incorpora un modelo de hinchamiento basado en el
-índice IH\,8 medido del carbón, y se contrasta el resultado con las cuatro
-observaciones cualitativas de laboratorio y con la curva medida de pérdida de
-masa de ocho puntos. \ojo{No existe caracterización del aglomerado después del
+\SI{900}{\celsius} durante \SI{720}{\second}. Se documentan catorce defectos
+localizados y corregidos ---tres en la ecuación de energía y dos en los datos
+termoquímicos, todos ellos compensándose por parejas---, se adopta el
+refinamiento Rietveld nuevo del concentrado magnético, y se incorporan modelos
+de hinchamiento y de respuesta magnética. El resultado se contrasta con las
+cuatro observaciones cualitativas de laboratorio y con la curva medida de
+pérdida de masa de ocho puntos, que ahora reproduce con menos de dos puntos
+porcentuales de RMS. La cuarta observación ---que el aglomerado sigue pegándose al imán al final
+del ensayo--- destapó que la frontera de reducción de la magnetita estaba
+equivocada por un factor 42. \ojo{No existe caracterización del aglomerado después del
 ensayo: todo campo que produce el programa es predicción}, y el informe distingue
 en todo momento lo que descansa en evidencia de lo que no.
 \end{abstract}
@@ -60,18 +77,24 @@ en todo momento lo que descansa en evidencia de lo que no.
 Observación & a los \SI{30}{\second} no ha pasado nada: polvo suelto & cualitativa \\
 Observación & a los \SI{90}{\second} ya es más grande y se hincha & cualitativa \\
 Observación & a los \SI{120}{\second} ya está bien formado & cualitativa \\
+Observación & al final \emph{sigue pegándose al imán}, pero más débil & cualitativa \\
+Procedimiento & se saca el crisol y se deja enfriar al ambiente & --- \\
 ASTM D720 & índice de hinchamiento IH\,8; con magnetita hincha menos & semicuantitativa \\
 Balanza & pérdida de masa: 8 puntos entre 30 y \SI{720}{\second} & \textbf{cuantitativa} \\
 Análisis próximo & volátil \qty{35.30}{\percent}, C fijo \qty{53.94}{\percent}, cenizas \qty{9.86}{\percent} & cuantitativa \\
-DRX--Rietveld & \qty{70.7}{\percent} Fe$_3$O$_4$ + \qty{17.3}{\percent} FeTiO$_3$ + \qty{10.9}{\percent} Fe$_2$O$_3$ & cuantitativa, inicial \\
+DRX--Rietveld & REF-M: \qty{76.85}{\percent} Fe$_3$O$_4$ + \qty{23.15}{\percent} titanohematita R-3 & cuantitativa, inicial \\
 Termopar & curva real de la mufla, con su caída al abrir la puerta & cuantitativa \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Las tres observaciones son cualitativas, pero son \emph{fechas}: acotan el proceso
-entre los 30 y los \SI{120}{\second}. Ese intervalo resultó el instrumento de
-diagnóstico más potente del trabajo. La curva de pérdida de masa es el único dato
+Las tres primeras observaciones son cualitativas, pero son \emph{fechas}: acotan
+el proceso entre los 30 y los \SI{120}{\second}. Ese intervalo resultó el
+instrumento de diagnóstico más potente del trabajo. La cuarta, la prueba del
+imán, es de otra clase: no acota un instante sino la \emph{composición de fases
+del producto}, y es lo único que hay, porque toda la caracterización disponible
+es del material inicial. Destapó dos defectos termoquímicos que llevaban
+escondidos desde el principio (\S\ref{sec:magnetismo}). La curva de pérdida de masa es el único dato
 cuantitativo de la evolución, y \ojo{no se estaba usando} para contrastar el 3-D.
 
 \section{Lo que pasa, según el modelo}
@@ -107,10 +130,13 @@ Pasados los \SI{773}{\kelvin} el carbón resolidifica y coquiza. La cohesión pa
 de cero a casi todo el lecho en unos \SI{30}{\second}.
 
 \paragraph{Fase 5, reducción y parada.}
-La hematita se agota y se acumula wüstita. \textbf{El hierro metálico no se
-forma}: el gas está tamponado justo en la frontera Fe$_3$O$_4$/FeO. La ilmenita
-tampoco se reduce. Pasada la devolatilización \emph{no ocurre nada más}: no queda
-reductor y la gasificación del char a \SI{900}{\celsius} es despreciable.
+La hematita se agota y su hierro pasa a la magnetita, que \emph{sobrevive}. Ahí
+se detiene todo: el gas se tampona \textbf{sobre} la frontera Fe$_3$O$_4$/FeO,
+así que magnetita y wüstita coexisten y ninguna de las dos avanza. El hierro
+metálico no se forma y la ilmenita tampoco se reduce. Pasada la
+devolatilización \emph{no ocurre nada más}: no queda reductor y la gasificación
+del char a \SI{900}{\celsius} es despreciable. Que la magnetita sobreviva es lo
+que exige la prueba del imán (\S\ref{sec:magnetismo}).
 
 \begin{figure}[H]
 \centering
@@ -149,8 +175,9 @@ por legibilidad: la paleta con el color real de cada mineral se usa en la vista
 \centering
 \includegraphics[width=0.88\textwidth]{fig_hierro.pdf}
 \caption{Reparto del hierro entre sus fases, en \% del inventario total de Fe.
-La hematita se consume, la magnetita pasa a wüstita y \textbf{el hierro metálico
-no aparece}. La ilmenita mantiene su hierro: no se reduce.}
+La hematita se consume y su hierro pasa a la \textbf{magnetita, que se
+conserva}; el hierro metálico queda en trazas. La ilmenita mantiene su hierro:
+no se reduce.}
 \end{figure}
 
 \subsection{Gases y tamponamiento}
@@ -159,9 +186,10 @@ no aparece}. La ilmenita mantiene su hierro: no se reduce.}
 \centering
 \includegraphics[width=0.88\textwidth]{fig_gases.pdf}
 \caption{Arriba, concentración media de cada especie en el interior del crisol.
-Abajo, la razón CO/(CO+CO$_2$) contra la frontera Fe$_3$O$_4$/FeO. Es el
-resultado termodinámico del proyecto, reproducido aquí de forma independiente:
-con ese potencial se reduce hasta wüstita y no más allá.}
+Abajo, la razón CO/(CO+CO$_2$) contra la frontera Fe$_3$O$_4$/FeO, que a
+\SI{900}{\celsius} está en \num{0.3222} según NIST--JANAF. El gas se apoya en
+ella: es el tamponamiento, ahora con el número correcto y sin ninguna constante
+ajustada para conseguirlo (\S\ref{sec:frontera}).}
 \end{figure}
 
 \subsection{Porosidad}
@@ -275,10 +303,301 @@ otro sobrecalentaba el crisol. El modelo respetaba el dato de los
 correcto. Hicieron falta dos observaciones más, cualitativas y de un segundo cada
 una, para destaparlo.
 
+\subsection{La mineralogía era otra}
+\label{sec:mineralogia}
+
+El concentrado se volvió a refinar con FullProf sobre el patrón crudo, separando
+la fracción magnética (\textbf{REF-M}, la que entra al ensayo) de la no magnética
+(REF-NM). El resultado sustituye por completo a la composición que el modelo
+venía usando.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lrl}
+\toprule
+\textbf{Fase} & \textbf{\% en peso} & \textbf{Celda (\si{\angstrom})} \\
+\midrule
+Magnetita Fe$_3$O$_4$ (Fd-3m) & $76{,}85 \pm 1{,}76$ & $a = 8{,}39312(16)$ \\
+Titanohematita R-3 & $23{,}15 \pm 1{,}59$ & $a = 5{,}06308(58)$, $c = 13{,}90120(233)$ \\
+\bottomrule
+\end{tabular}
+\caption{Refinamiento de REF-M. Rwp \qty{8.38}{\percent}, Rexp \qty{4.61}{\percent},
+$\chi^2 = 3{,}31$.}
+\end{table}
+
+La segunda fase \textbf{no es ilmenita ni hematita}: sus parámetros de red caen
+en medio de la serie hematita--ilmenita. Interpolando por la ley de Vegard entre
+los dos extremos sale $x(\mathrm{FeTiO_3}) = 0{,}52$ según $a$ y $0{,}46$ según
+$c$; se adopta $x = 0{,}49 \pm 0{,}03$. Que los dos parámetros, refinados de
+forma independiente, sitúen la fase en el mismo tramo es el control interno del
+resultado. Como el modelo de reacción sólo conoce Fe$_2$O$_3$ y FeTiO$_3$, la
+fase se descompone en sus dos miembros extremos conservando masa:
+\qty{12.10}{\percent} Fe$_2$O$_3$ y \qty{11.05}{\percent} FeTiO$_3$.
+
+\ojo{No hay hematita libre ni cuarzo.} El cuarzo se probó y se rechazó: refina a
+\qty{0.03}{\percent} con $R_{\mathrm{Bragg}} = 354$. La ilmenita casi pura y el
+cuarzo viven en la fracción \emph{no} magnética, junto con circón ZrSiO$_4$
+(\qty{21.1}{\percent}) y albita (\qty{8.1}{\percent}), y no entran al ensayo.
+
+La composición anterior --- \qty{70.7}{\percent} / \qty{17.3}{\percent} /
+\qty{10.9}{\percent} / \qty{1.1}{\percent} --- se descartó entera: se había
+tomado de dos imágenes PNG de un refinamiento ajeno, sin el patrón crudo, y al
+verificar las fichas cristalográficas que citaba resultó que \textbf{tres de las
+cuatro eran incorrectas}. La de magnetita no era cúbica, la de hematita era en
+realidad una espinela MgAl$_2$O$_4$ y la de ilmenita correspondía a la celda
+comprimida a \SI{8.2}{\giga\pascal}.
+
+Un detalle que ahora encaja: el tamaño aparente de cristalito de la fase R-3 es
+\SI{22.8}{\nano\meter} en REF-M frente a \SI{83.3}{\nano\meter} en REF-NM. Es
+decir, en el concentrado magnético está como \emph{lamas finas intercrecidas}
+dentro de los granos de magnetita. Eso explica que una fase cuya magnetización
+propia es de orden \qty{1.5}{\ampere\meter\squared\per\kilo\gram} acabe en el
+producto magnético: la arrastra la magnetita que la hospeda. El argumento de la
+exsolución, que hasta ahora venía sólo del SEM, tiene ahora respaldo
+cristalográfico.
+
+\subsection{La frontera Fe$_3$O$_4$/FeO estaba mal por un factor 42}
+\label{sec:frontera}
+
+Es el defecto más grave que ha aparecido en el proyecto, y lo destapó la prueba
+del imán. El gas del lecho está en CO/(CO+CO$_2$) entre \num{0.49} y \num{0.72},
+y la termodinámica del modelo ponía la frontera de reducción de la magnetita en
+\num{0.00757}. Con esa frontera, cualquier gas la reduce entera. La tabla
+NIST--JANAF ---que es la fuente que el propio módulo declara--- la pone en
+\num{0.3222} a \SI{900}{\celsius}, de acuerdo con el diagrama clásico de
+Baur--Glaessner.
+
+Eran \textbf{dos} defectos de datos, y los dos empujaban en el mismo sentido:
+
+\begin{enumerate}
+\item \textbf{El $C_p$ de Fe$_3$O$_4$ extrapolado fuera de su rango.} Era un
+  ajuste Maier--Kelley de rango bajo, $C_p = 111{,}8 + 0{,}106\,T$, extendido
+  hasta \SI{1400}{\kelvin}; a \SI{1173}{\kelvin} daba
+  \qty{236}{\joule\per\mole\per\kelvin}. JANAF tiene una transición lambda
+  magnética en \SI{900}{\kelvin} por encima de la cual $C_p$ es
+  \qty{200.832}{\joule\per\mole\per\kelvin} \emph{constante}.
+\item \textbf{FeO estequiométrico en lugar de wüstita.} La fase que de verdad
+  coexiste con la magnetita es Fe$_{0{,}947}$O, bastante menos estable. Con FeO
+  estequiométrico la frontera sale en \num{0.052} en vez de \num{0.32}: seis
+  veces menos CO del necesario.
+\end{enumerate}
+
+La corrección no se ajustó contra el ensayo: el objetivo era tabla primaria. Y
+se valida contra dos cosas que \emph{no} entraron en el ajuste --- la frontera
+FeO/Fe y el eutectoide de la wüstita, que el modelo sitúa en
+\SI{613.7}{\celsius} frente a los \SI{615.6}{\celsius} del mismo cálculo hecho
+con las tablas de JANAF.
+
+\paragraph{Y el «invariante robusto» no era independiente.} El proyecto venía
+citando el tamponamiento del gas sobre la frontera Fe$_3$O$_4$/FeO como un
+resultado termodinámico, ajeno al ajuste. Pero la constante cinética
+\texttt{k\_magnetita} se había fijado en \num{0.20} con el comentario explícito
+de que era «la rama que conserva Fe$_3$O$_4$ a \SI{720}{\second} y reproduce
+CO/(CO+CO$_2$) = \num{0.00757}». Es decir, se eligió \emph{para} caer sobre una
+frontera equivocada, y el resultado se presentaba después como si fuese
+independiente. Es el cuarto caso del patrón de dos errores que se compensan.
+Corregida la termodinámica, el tamponamiento sale solo, con los parámetros por
+omisión y sin frenar nada.
+
 \subsection{La compuerta de devolatilización}
 \label{sec:puerta}
 
 \input{parrafo_calibracion}
+
+\section{La prueba del imán y el enfriado}
+\label{sec:magnetismo}
+
+\subsection{El dato}
+
+El aglomerado se pega al imán, y cuanto más tiempo pasa en la mufla más débil es
+la respuesta; al final del ensayo \emph{todavía se pega}, sólo que más flojo. Es
+una observación cualitativa ---un imán contra una muestra, no un
+magnetómetro---, pero es el \textbf{único dato experimental que restringe la
+composición de fases del producto}: toda la caracterización disponible es del
+material inicial.
+
+\subsection{Por qué el imán mide la reducción}
+
+A \SI{900}{\celsius} nada de esto es magnético: la temperatura de Curie de la
+magnetita son \SI{585}{\celsius}. Lo que el imán mide es el estado de fases
+\emph{después de enfriar}. A temperatura ambiente, y por kilogramo de fase pura:
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{llr}
+\toprule
+\textbf{Fase} & \textbf{Orden magnético} & \textbf{$M_s$ (\si{\ampere\meter\squared\per\kilo\gram})} \\
+\midrule
+Fe$_3$O$_4$ magnetita & ferrimagnética & 92 \\
+Fe metálico & ferromagnético & 218 \\
+Fe$_2$O$_3$ hematita & antiferro.\ inclinada & 0,4 \\
+FeO wüstita & paramagnética ($T_N = \SI{198}{\kelvin}$) & 0 \\
+FeTiO$_3$ ilmenita & paramagnética ($T_N = \SI{40}{\kelvin}$) & 0 \\
+char, ceniza, cuarzo & diamagnéticos & 0 \\
+\bottomrule
+\end{tabular}
+\caption{Hunt, Moskowitz y Banerjee (1995), \emph{Magnetic Properties of Rocks
+and Minerals}, AGU Reference Shelf 3, Tabla 3. La mezcla es lineal en masa: los
+momentos magnéticos son aditivos, no hay ninguna regla que calibrar.}
+\end{table}
+
+De ahí la lectura: la magnetita vale 92 y la wüstita 0, así que \textbf{reducir
+magnetita a wüstita apaga el imán}, y hacerlo poco a poco lo va apagando poco a
+poco. Es exactamente lo que la metalurgia extractiva conoce como sobre-reducción
+en la tostación magnetizante.
+
+El caso delicado es la titanohematita. Con $x = 0{,}49$ cae justo sobre la
+transición de la serie hematita--ilmenita, que pasa de antiferromagnetismo
+inclinado a ferrimagnetismo en $y \approx 0{,}45$: a un lado $M_s$ vale 0,4 y al
+otro llega a \num{30}, y el grado de orden Fe/Ti que lo decide \emph{el DRX de
+laboratorio no puede resolverlo}. Se adopta
+\qty{1.5}{\ampere\meter\squared\per\kilo\gram}, medido sobre esa misma
+composición por Ohara \emph{et al.}\ (2022), y se declara \textbf{calibrable}
+entre 0,4 y 10. Da igual para la conclusión: es el \qty{0.5}{\percent} de la
+magnetización total.
+
+\subsection{¿Sacar el crisol al aire es un temple?}
+
+Lo preguntó el laboratorio, y hay que responderlo con números, porque de ello
+depende cómo se lee el imán. Por debajo de \SI{570}{\celsius} la wüstita deja de
+ser estable y se descompone,
+$4\,\mathrm{FeO} \rightarrow \mathrm{Fe_3O_4} + \mathrm{Fe}$, y \textbf{los dos productos sí son magnéticos}: el
+eutectoide completo da \qty{8.37}{\ampere\meter\squared} por mol de hierro
+frente a los \num{7.10} de la magnetita de partida.
+
+\begin{clave}
+Si el enfriamiento fuese lento, el aglomerado saldría \emph{más} magnético que
+al empezar, no menos. Como se observa lo contrario, la propia prueba del imán
+exige que la wüstita se conserve en buena parte. Es información nueva sobre el
+ensayo, obtenida sin ningún instrumento.
+\end{clave}
+
+La curva se resuelve por capacidad concentrada, con radiación ($\varepsilon =
+0{,}80$) y convección natural, tras comprobar que el número de Biot lo permite
+($\mathrm{Bi} = \datEnfriaBiot$).
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lrr}
+\toprule
+ & \textbf{crisol + tapa} & \textbf{aglomerado solo} \\
+ & (\qty{48.5}{\gram}) & (\qty{0.72}{\gram}) \\
+\midrule
+velocidad a \SI{900}{\celsius} (\si{\celsius\per\minute}) & \datEnfriaInicial & 11\,617 \\
+\textbf{velocidad al cruzar \SI{570}{\celsius}} & \textbf{\datEnfriaEutectoide} & \textbf{3\,788} \\
+tiempo en la ventana 570--\SI{400}{\celsius} (\si{\second}) & \datEnfriaVentana & 3,9 \\
+\midrule
+veredicto & temple parcial & temple \\
+\bottomrule
+\end{tabular}
+\caption{Umbral publicado para suprimir la transformación eutectoide por encima
+de \SI{700}{\celsius}: \datEnfriaUmbral\ \si{\celsius\per\minute} (Zorc, Nagode
+y Kosec, \emph{High Temperature Corrosion of Materials}, 2024).}
+\end{table}
+
+Sacar el crisol entero se queda tres veces por debajo del umbral: es rápido para
+un horno y lento para un temple. Por eso el observable se reporta como
+\textbf{banda entre dos cotas} y no como un número. \textbf{Consecuencia
+práctica}: si interesa que el imán lea el estado que había a
+\SI{900}{\celsius}, basta con volcar el aglomerado fuera del crisol al sacarlo;
+sin la masa del Ni-Cr se enfría dos órdenes de magnitud más rápido y sí es un
+temple.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{fig_fen_magnetismo.pdf}
+\caption{Izquierda: magnetización de saturación del lecho a temperatura
+ambiente, con la banda que abren los dos extremos del enfriado. Centro: el
+momento total, que no se entera de la dilución por pérdida de masa y sigue
+sólo a la química del hierro. Derecha: curva de enfriamiento del crisol al aire
+contra el eutectoide de la wüstita.}
+\end{figure}
+
+\subsection{Qué dice el modelo}
+
+Hay que mirar dos cosas a la vez, y conviene decir por qué. La
+\emph{magnetización específica} ---momento por kilogramo, que es lo que decide
+si la pieza se pega al imán--- mezcla dos efectos: la química del hierro y el
+hecho de que el lecho pierde el \qty{28}{\percent} de su masa al
+devolatilizarse, lo que sube el cociente sin que cambie ninguna fase. El
+\emph{momento total} no se entera de esa dilución y sigue sólo a la química.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lrrr}
+\toprule
+ & \textbf{inicio} & \textbf{máximo} & \textbf{final} \\
+\midrule
+magnetización (\si{\ampere\meter\squared\per\kilo\gram}) & \datMagnetInicial & \datMagnetMaxima & \datMagnetFinal \\
+momento total (\si{\milli\ampere\meter\squared}) & \datMomentoInicial & \datMomentoMaximo & \datMomentoFinal \\
+\bottomrule
+\end{tabular}
+\caption{Cota de temple, es decir, con la wüstita conservada. Si el enfriado
+fuese lento la magnetización final sería \datMagnetLentaFinal\
+\si{\ampere\meter\squared\per\kilo\gram}.}
+\end{table}
+
+Los dos números cuentan cosas distintas, y por eso hay que leerlos juntos. El
+\textbf{momento total} acaba en el \datMomentoPctFinal\ \si{\percent} del
+inicial: en neto, la química del hierro es casi un empate, porque lo que la
+magnetita gana de la hematita lo pierde después al pasar a wüstita. La
+\textbf{magnetización específica}, en cambio, sube al \datMagnetPctFinal\
+\si{\percent}, y esa subida es sobre todo \emph{dilución}: el lecho se ha
+quedado con el \qty{75}{\percent} de su masa.
+
+Lo esencial es lo mismo en las dos lecturas: la respuesta pasa por un máximo
+hacia los \datMagnetTMaxima\ \si{\second} y después decrece, y \textbf{no se
+apaga}. Al final del ensayo sigue habiendo magnetita, y por eso el aglomerado
+sigue pegándose al imán.
+
+Que suba antes de bajar no contradice lo observado: el laboratorio no midió los
+primeros segundos, y compara aglomerados de tiempos largos entre sí. Lo que la
+observación exige ---y el modelo cumple--- es que a tiempos largos vaya a menos
+y que no llegue a apagarse. Con la termodinámica anterior el modelo dejaba el
+\qty{1.3}{\percent} de la magnetización inicial, es decir, un aglomerado que ya
+no se habría pegado: quedaba refutado por el ensayo.
+
+\ojo{Esto sigue siendo predicción.} No hay VSM, ni Mössbauer, ni DRX del
+aglomerado después del ensayo. La observación sirve para \emph{falsar}: dos
+pruebas automáticas exigen que la magnetización final sea positiva y menor que
+el máximo, y cualquier recalibración futura que apague el imán antes de los
+\SI{720}{\second} queda refutada.
+
+\subsection{Lo que el modelo todavía no explica}
+\label{sec:discrepancia}
+
+Conviene decirlo con claridad, porque es lo más útil que sale de este capítulo.
+
+El modelo \textbf{se congela hacia los \SI{150}{\second}}: agotado el volátil no
+queda reductor, la gasificación del char está prácticamente apagada
+($\mathrm{Da} \approx \num{1.6e-17}$) y a partir de ahí ninguna fase se mueve.
+Su predicción es, por tanto, que un aglomerado sacado a los \SI{300}{\second} y
+otro sacado a los \SI{720}{\second} responden al imán \emph{igual}.
+
+El laboratorio dice otra cosa: que \emph{sigue} perdiendo capacidad magnética
+cuanto más tiempo pasa dentro. Esa parte no se reproduce.
+
+Y la discrepancia señala a un sitio concreto. Para que la magnetita siga
+reduciéndose después de los \SI{150}{\second} tiene que seguir habiendo CO, y el
+único carbono disponible es el char, que sigue ahí en cantidad
+(\qty{24000}{\mole\per\meter\cubed} de media en el lecho) junto con CO$_2$. La
+reacción que los uniría es la de Boudouard, y su constante cinética
+\texttt{k\_boudouard} es precisamente uno de los parámetros que la calibración
+declara \textbf{no identificables} con la curva de pérdida de masa. La prueba
+del imán sí podría identificarla: sería el primer observable del proyecto que
+restringe esa constante.
+
+\ojo{No se ha tocado.} Ajustar \texttt{k\_boudouard} hasta que la curva de
+magnetización baje sería exactamente el error que este proyecto ya ha pagado
+cuatro veces. Queda registrado como discrepancia abierta, con una prueba
+automática marcada \texttt{xfail} estricta que avisará el día en que el modelo
+la reproduzca, y con lo que haría falta del laboratorio para cerrarla: una curva
+de magnetización de saturación contra tiempo, que es un ensayo de VSM de una
+tarde.
 
 \section{El modelo de hinchamiento}
 
@@ -355,9 +674,13 @@ observaciones sin que se ajustara ninguna constante de la cinética del carbón
 para conseguirlo.
 \item \textbf{La secuencia hinchar $\rightarrow$ cuajar}, consecuencia de la
 estructura del modelo y no de un ajuste.
-\item \textbf{La parada en wüstita}, coincidente con el tamponamiento
-CO/(CO+CO$_2$) sobre la frontera Fe$_3$O$_4$/FeO que predice la termodinámica del
-proyecto por una vía independiente.
+\item \textbf{La parada en la magnetita}, con el gas tamponado sobre la
+frontera Fe$_3$O$_4$/FeO. Ahora sí es independiente: la frontera sale de la
+tabla NIST--JANAF y el tamponamiento, de los parámetros por omisión. Y encaja
+con la única observación que hay del producto, la prueba del imán.
+\item \textbf{La respuesta magnética que decrece sin apagarse}
+(\S\ref{sec:magnetismo}), que no se ajustó: emerge de la mineralogía y de la
+frontera termodinámica.
 \item \textbf{La forma de la curva de masa}: subida brusca y meseta, con el
 modelo y el ensayo congelándose por la misma razón.
 \item \textbf{Coherencia interna del régimen.} El Reynolds de partícula que
@@ -379,11 +702,19 @@ modelo.
 \item \textbf{El acoplamiento mufla $\rightarrow$ crisol} se resuelve por
 conducción a través del gas que rodea el crisol, no por radiación con factores de
 vista geométricos.
+\item \ojo{La pérdida de magnetismo a tiempos largos.} El modelo se congela a
+los \SI{150}{\second} y predice que un aglomerado de \SI{300}{\second} y otro de
+\SI{720}{\second} responden al imán igual; el laboratorio dice que no
+(\S\ref{sec:discrepancia}). Es la discrepancia abierta del trabajo.
+\item \textbf{La magnetización de la titanohematita} es un valor de literatura
+para esa composición, no una medida de esta muestra, y la fase cae justo sobre
+la transición magnética de la serie. Da igual para las conclusiones —es el
+\qty{0.5}{\percent} del total— pero se declara calibrable.
 \end{itemize}
 
 \subsection{La lección de método}
 
-Tres veces apareció el mismo patrón: \textbf{dos errores que se compensan}
+Cuatro veces apareció el mismo patrón: \textbf{dos errores que se compensan}
 producen un modelo que acierta donde se le mira y falla donde no. Los defectos 5
 y 7 se cancelaban en el dato de los \SI{30}{\second}; la compuerta baja de
 devolatilización y la historia térmica calibrada de \texttt{simulacion\_v3} se
@@ -396,15 +727,29 @@ debajo.
 \section{Lo que falta}
 
 \begin{enumerate}[leftmargin=*,itemsep=2pt]
+\item \textbf{VSM del aglomerado a varios tiempos.} Es lo más barato y lo que
+más rinde. La prueba del imán ya restringe el modelo siendo sólo cualitativa;
+una curva de magnetización de saturación contra tiempo la convertiría en medida,
+fijaría el reparto Fe$_3$O$_4$/FeO y sería el primer dato capaz de identificar
+\texttt{k\_boudouard}, que la curva de masa no puede (\S\ref{sec:discrepancia}).
+Conviene medir también el concentrado sin tostar, para normalizar.
+\item \textbf{Registrar cómo se enfría}: basta un termopar al sacar el crisol.
+El modelo lo llama temple \emph{parcial}, y de eso depende que la lectura del
+imán tenga una cota o dos.
 \item \textbf{Caracterización del aglomerado tras el ensayo} (DRX / Mössbauer /
 SEM). Es lo único que convertiría la tabla~\ref{tab:fases} en resultado.
-\item \textbf{Análisis del gas de salida} (CO/CO$_2$): validaría el tamponamiento.
+\item \textbf{Análisis del gas de salida} (CO/CO$_2$): validaría el
+tamponamiento, ahora sobre la frontera correcta.
 \item \textbf{TGA del carbón solo}, con su propia historia térmica medida:
 separaría devolatilización de reducción y fijaría la compuerta sin depender de la
 calibración de \texttt{simulacion\_v3}.
 \item \textbf{Dilatometría} de la mezcla: fijaría el factor de hinchamiento.
-\item \textbf{Recalibrar \texttt{simulacion\_v3}} con la compuerta corregida:
-su ajuste actual y la compuerta baja están acoplados.
+\item \textbf{Recalibrar \texttt{simulacion\_v3}} con la compuerta corregida y la
+termodinámica nueva: \texttt{k\_magnetita} se había elegido contra una frontera
+equivocada y ya no puede citarse como restricción física (\S\ref{sec:frontera}).
+\item \textbf{Cuánta masa dio cada fracción de la separación magnética.} Aquí se
+supone que el concentrado del ensayo es REF-M puro; si llevara parte de REF-NM,
+la composición cambiaría.
 \item Radiación mufla $\rightarrow$ crisol con factores de vista geométricos.
 \item Corrida de malla media hasta \SI{130}{\second}.
 \item Empaquetado a ejecutable con PyInstaller.

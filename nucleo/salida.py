@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 import numpy as np
 
@@ -274,6 +274,44 @@ def cargar_serie(directorio: str | Path) -> list[dict[str, Any]]:
         })
     indice.sort(key=lambda elemento: (elemento["t"], elemento["nombre"]))
     return indice
+
+
+def recortar_a_la_corrida_vigente(
+    elementos: list[Any],
+    tiempo_de: Callable[[Any], float],
+    escritura_de: Callable[[Any], int],
+) -> list[Any]:
+    """Descarta los NPZ que sobraron de una corrida anterior.
+
+    Una corrida nueva sobre el mismo directorio reescribe primero el t=0, pero
+    no borra las instantáneas tardías de la anterior: quedan mezcladas dos
+    predicciones distintas en la misma línea temporal. Se conservan sólo las
+    escritas a partir del t=0 más reciente.
+
+    Vive aquí, y no en la interfaz, porque lo necesitan CUATRO consumidores: el
+    visor, el selector de corrida, el informe y las pruebas. Mientras cada uno
+    tuvo su propia copia no coincidieron, y el informe llegó a construirse sobre
+    una carpeta con dos corridas mezcladas mientras el sitio publicaba otra.
+    """
+    inicios = [
+        elemento for elemento in elementos
+        if abs(float(tiempo_de(elemento))) <= 1.0e-12
+    ]
+    if not inicios:
+        return list(elementos)
+    corte = max(escritura_de(elemento) for elemento in inicios)
+    return [elemento for elemento in elementos if escritura_de(elemento) >= corte]
+
+
+def serie_vigente(directorio: str | Path) -> list[dict[str, Any]]:
+    """Índice de la corrida vigente del directorio, ya recortado y ordenado."""
+
+    indice = cargar_serie(directorio)
+    return recortar_a_la_corrida_vigente(
+        indice,
+        lambda elemento: float(elemento["t"]),
+        lambda elemento: elemento["ruta"].stat().st_mtime_ns,
+    )
 
 
 def _nombre_vtk(nombre: str) -> str:

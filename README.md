@@ -26,18 +26,27 @@ Todo lo que muestra el visor es **predicción del modelo, sin validación
 experimental de fases**. Conviene decirlo con precisión, porque el proyecto ha
 sido cuidadoso en separar lo medido de lo calculado:
 
-- El concentrado **no es magnetita pura**: por DRX-Rietveld es 70,7 % Fe₃O₄ +
-  17,3 % ilmenita (FeTiO₃) + 10,9 % hematita + 1,1 % cuarzo.
+- El concentrado **no es magnetita pura**: por DRX-Rietveld de la fracción
+  magnética (REF-M, Rwp 8,38 %) es 76,85 % Fe₃O₄ + 23,15 % de una
+  **titanohematita** R-3, miembro intermedio de la serie hematita–ilmenita con
+  x(FeTiO₃) = 0,49. El modelo la descompone en sus dos extremos: 12,10 % Fe₂O₃
+  + 11,05 % FeTiO₃. **No hay hematita libre ni cuarzo** — están en la fracción
+  no magnética, que no entra al ensayo.
 - La pérdida de masa medida **no mide la reducción**: el 95 % es
   devolatilización del carbón y sólo el 2,2 % es oxígeno de los óxidos.
 - El grado de reducción **no es identificable** con los 8 puntos
   experimentales disponibles: α varía entre 0,037 y 0,171 sin que empeore el
   ajuste. Un R² alto sobre la pérdida de masa no valida ninguna afirmación
   sobre fases.
-- Lo robusto es termodinámico, no ajustado: el gas se tampona en
-  CO/(CO+CO₂) = 0,00758, justo sobre la frontera Fe₃O₄/FeO (0,00757), y la
-  ilmenita **no se reduce** a 900 °C. El modelo 3-D lo reproduce por su cuenta:
-  la reducción se detiene en wüstita y el hierro metálico se queda en 0,004 %.
+- Lo robusto es termodinámico, no ajustado: el gas se tampona **sobre la
+  frontera Fe₃O₄/FeO** y la ilmenita **no se reduce** a 900 °C (requeriría
+  94,7 % de CO). La frontera está en CO/(CO+CO₂) = 0,3222 a 900 °C según
+  NIST-JANAF; el valor de 0,00757 que se citaba antes venía de dos defectos de
+  datos termoquímicos ya corregidos.
+- El aglomerado **sigue respondiendo al imán al final del ensayo, más débil**.
+  Es la única restricción experimental sobre las fases del producto, y el visor
+  la muestra en el panel «Prueba del imán» con las dos cotas que impone el
+  enfriado.
 
 Toda la caracterización disponible es del material **inicial**, así que ninguna
 fase predicha tiene contraste experimental. Falta, sobre todo, DRX/Mössbauer/SEM

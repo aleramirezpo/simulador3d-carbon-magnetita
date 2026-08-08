@@ -88,32 +88,28 @@ CRONOLOGIA_OBSERVADA = ((30.0, "nada"), (90.0, "creciendo"), (120.0, "formado"))
 
 
 def _corrida_de_referencia():
-    """Instantáneas de la corrida MÁS RECIENTE del directorio.
+    """Instantáneas de la corrida vigente, la misma que abre el visor.
 
-    Una corrida nueva sobrescribe primero t=0, pero los instantes intermedios
-    caen en microsegundos distintos y dejan archivos de la corrida anterior
-    conviviendo con los nuevos. Mezclarlos daría una línea temporal falsa: se
-    toman sólo los escritos a partir del t=0 más reciente, que es el mismo
-    criterio que aplica la interfaz.
+    El recorte a la corrida vigente y la elección de carpeta no se reimplementan
+    aquí: los hacen `nucleo.salida` e `interfaz.app`, que es de donde los toman
+    también el visor y el informe. Antes esta función apuntaba a una carpeta
+    fija, `resultados/simulacion_720s`, que llegó a contener dos corridas
+    mezcladas mientras el sitio publicaba otra distinta.
     """
     from pathlib import Path
 
-    from nucleo.salida import cargar_instantanea
+    from interfaz.app import directorio_predeterminado
+    from nucleo.salida import cargar_instantanea, serie_vigente
 
-    directorio = Path(__file__).resolve().parents[1] / "resultados" / "simulacion_720s"
-    rutas = sorted(directorio.glob("*.npz")) if directorio.is_dir() else []
-    if not rutas:
-        pytest.skip("no hay corrida en resultados/simulacion_720s")
-
-    cargadas = [(ruta, cargar_instantanea(ruta)) for ruta in rutas]
-    inicios = [ruta for ruta, campos in cargadas if abs(float(campos["t"])) <= 1.0e-12]
-    if inicios:
-        corte = max(ruta.stat().st_mtime_ns for ruta in inicios)
-        cargadas = [
-            (ruta, campos) for ruta, campos in cargadas
-            if ruta.stat().st_mtime_ns >= corte
-        ]
-    return {float(campos["t"]): campos for _, campos in cargadas}
+    raiz = Path(__file__).resolve().parents[1]
+    directorio = directorio_predeterminado(raiz / "resultados")
+    indice = serie_vigente(directorio) if Path(directorio).is_dir() else []
+    if len(indice) < 5:
+        pytest.skip(f"no hay corrida utilizable en {directorio}")
+    return {
+        float(elemento["t"]): cargar_instantanea(elemento["ruta"])
+        for elemento in indice
+    }
 
 
 def _estado_en(tiempos, objetivo):

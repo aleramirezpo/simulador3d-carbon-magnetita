@@ -326,6 +326,9 @@ def datos_sueltos(datos):
     macro("datVolatilFinal", num(1000.0 * s["m_volatil"][-1], 2))
     macro("datHematitaInicial", num(1000.0 * s["m_Fe2O3"][0], 2))
     macro("datMagnetitaInicial", num(1000.0 * s["m_Fe3O4"][0], 2))
+    macro("datMagnetitaFinal", num(1000.0 * s["m_Fe3O4"][-1], 2))
+    macro("datMagnetitaVariacion", num(
+        100.0 * (s["m_Fe3O4"][-1] - s["m_Fe3O4"][0]) / s["m_Fe3O4"][0], 1))
     # Estado a los 30 y a los 90 s: los dos instantes que cita el texto al
     # contrastar con las observaciones cualitativas del laboratorio.
     macro("datTLechoTreinta", num(_en(s, 30.0, "T_lecho") - 273.15, 0))
@@ -338,6 +341,29 @@ def datos_sueltos(datos):
     razon = s["D_aglomerado_mm"][-1] / d_particula_mm
     macro("datCrecimientoLineal", num(razon, 0))
     macro("datCrecimientoVolumen", cientifico(razon ** 3, 1))
+
+    # --- Prueba del iman y enfriado -------------------------------------
+    m = np.asarray(s["magnetizacion_Am2_kg"])
+    m_lenta = np.asarray(s["magnetizacion_lenta_Am2_kg"])
+    macro("datMagnetInicial", num(float(m[0]), 2))
+    macro("datMagnetMaxima", num(float(m.max()), 2))
+    macro("datMagnetFinal", num(float(m[-1]), 2))
+    macro("datMagnetPctFinal", num(100.0 * float(m[-1]) / float(m[0]), 0))
+    macro("datMagnetLentaFinal", num(float(m_lenta[-1]), 2))
+    macro("datMagnetTMaxima", num(float(t[int(np.argmax(m))]), 0))
+    # Momento total, en mA m2: separa la quimica del hierro de la dilucion.
+    mom = 1000.0 * np.asarray(s["momento_magnetico_Am2"])
+    macro("datMomentoInicial", num(float(mom[0]), 2))
+    macro("datMomentoMaximo", num(float(mom.max()), 2))
+    macro("datMomentoFinal", num(float(mom[-1]), 2))
+    macro("datMomentoPctFinal", num(100.0 * float(mom[-1]) / float(mom[0]), 0))
+    enf = datos["enfriamiento"]
+    macro("datEnfriaInicial", num(enf["velocidad_inicial_C_min"], 0))
+    macro("datEnfriaEutectoide", num(enf["velocidad_en_eutectoide_C_min"], 0))
+    macro("datEnfriaUmbral", num(enf["umbral_supresion_C_min"], 0))
+    macro("datEnfriaVentana", num(enf["tiempo_en_ventana_eutectoide_s"], 0))
+    macro("datEnfriaBiot", num(enf["biot_inicial"], 3))
+    macro("datEnfriaCruce", num(enf["t_cruce_eutectoide_s"], 0))
 
 
 def main() -> int:

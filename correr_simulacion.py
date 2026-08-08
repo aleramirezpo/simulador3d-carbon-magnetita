@@ -130,6 +130,43 @@ def _campo_hinchamiento(caso: Any, campo_coh: Any) -> np.ndarray:
     return np.where(np.asarray(caso.etiquetas) == LECHO, factor, 1.0)
 
 
+def _magnetismo(caso: Any, estado: Any) -> dict[str, float] | None:
+    """Magnetizacion de saturacion del lecho a temperatura ambiente.
+
+    Es el observable que contrasta con la prueba del iman. Se evalua EN FRIO,
+    no a 900 grados C: a la temperatura del ensayo nada de esto es magnetico
+    (la temperatura de Curie de la magnetita son 585 grados C), y el iman se
+    pasa despues de enfriar. Se guardan las dos cotas, segun la wustita se
+    conserve o se descomponga al enfriar; vease `fisica/magnetismo.py`.
+    """
+    try:
+        from fisica import magnetismo as _mag
+
+        # Sobre TODO el solido, no sobre `etiquetas == LECHO`: el 12 % de la
+        # carga esta en celdas cortadas por la frontera, que llevan etiqueta de
+        # pared o de gas porque su centro cae fuera. Enmascarar por etiqueta
+        # perderia ese 12 % y las cifras no cuadrarian con las masas por fase.
+        solido = {
+            fase: np.asarray(valores)
+            for fase, valores in estado.solido.items()
+            if not fase.startswith("_")
+        }
+        volumen = float(caso.malla.volumen_celda_mm3) * 1.0e-9
+        cotas = _mag.cotas_magnetizacion_Am2_kg(solido, volumen)
+        return {
+            "magnetizacion_temple_Am2_kg": float(cotas["temple"]),
+            "magnetizacion_enfriamiento_lento_Am2_kg": float(cotas["enfriamiento_lento"]),
+            # El momento total, sin normalizar por masa. Hace falta para separar
+            # dos efectos que la magnetizacion especifica mezcla: la quimica del
+            # hierro y la simple perdida del 28 % de la masa por
+            # devolatilizacion, que sube M sin que cambie ninguna fase.
+            "momento_Am2": float(_mag.momento_magnetico_Am2(solido, volumen)),
+            "masa_solida_lecho_kg": float(_mag.masa_solida_kg(solido, volumen)),
+        }
+    except Exception:
+        return None
+
+
 def _guardar(caso: Any, estado: Any, directorio: Path) -> Path:
     campos = instantanea_desde_estado(caso, estado)
     campo_coh = _actualizar_cohesion(caso, estado)
@@ -153,6 +190,11 @@ def _guardar(caso: Any, estado: Any, directorio: Path) -> Path:
         campos["metadatos"] = metadatos
     except Exception:
         pass
+    magnetismo = _magnetismo(caso, estado)
+    if magnetismo is not None:
+        metadatos = dict(campos.get("metadatos") or {})
+        metadatos["magnetismo"] = magnetismo
+        campos["metadatos"] = metadatos
     info = None
     try:
         from fisica import cohesion as _coh

@@ -996,6 +996,10 @@ si liberar los volátiles fuese gratis.
 
 ## 18. PARA RETOMAR EL TRABAJO
 
+> **Esta sección está SUPERADA por §19.** Se conserva porque describe el estado
+> del que se partía. Para el estado actual, lea §19 y luego la lista de
+> pendientes de §19.8.
+
 ### 18.1 Estado en esta parada
 
 - Corrida definitiva de 720 s con la compuerta de devolatilización corregida
@@ -1031,3 +1035,219 @@ si liberar los volátiles fuese gratis.
 
 Nada de esto es urgente frente a lo que falta del **laboratorio**: sin
 caracterización post-ensayo, las 47 fases predichas siguen siendo predicción.
+
+---
+
+## 19. LA PRUEBA DEL IMÁN, Y LOS DOS DEFECTOS TERMOQUÍMICOS QUE DESTAPÓ
+
+### 19.1 El dato nuevo
+
+El usuario aportó una observación más, y de procedimiento:
+
+| Observado | |
+|---|---|
+| El aglomerado **se pega al imán** | |
+| Cuanto **más tiempo en la mufla, más débil** el magnetismo | |
+| **Al final del ensayo todavía se pega**, sólo que más flojo | |
+| Se saca el crisol y **se deja enfriar al ambiente** | procedimiento |
+
+Es cualitativa —un imán contra una muestra, no un magnetómetro—, pero es el
+**único dato experimental que restringe la composición de fases del producto**:
+toda la caracterización disponible es del material inicial.
+
+### 19.2 Qué decía el modelo, medido antes de tocar nada
+
+Calculando la magnetización de saturación a temperatura ambiente del inventario
+de fases de la corrida vigente (magnetita 92 A m²/kg, hierro 218, hematita 0,4,
+wüstita e ilmenita 0; Hunt, Moskowitz y Banerjee 1995, Tabla 3):
+
+| t (s) | 0 | 30 | 60 | 90 | 120 | 150 | 720 |
+|---|---|---|---|---|---|---|---|
+| M/M₀ | 1,000 | 1,007 | **1,109** | 0,181 | **0,003** | 0,028 | 0,028 |
+| Fe₃O₄ | 100 % | 100 % | 107 % | 13 % | 0,0008 % | **0** | **0** |
+
+**El modelo quedaba falsado.** Consumía toda la magnetita hacia los 150 s y
+dejaba un aglomerado prácticamente no magnético, cuando en el laboratorio sigue
+respondiendo al imán a los doce minutos. Y producía 1,06 % de hierro metálico,
+no el 0,004 % que declaraban §16.1 y el CONTEXTO raíz — esas tablas eran de una
+corrida anterior a la corrección de la compuerta de §17 y estaban obsoletas.
+
+### 19.3 La causa: la frontera Fe₃O₄/FeO estaba mal por un factor 42
+
+El gas del lecho está en CO/(CO+CO₂) = 0,49–0,72 y `termodinamica_ext` ponía la
+frontera de reducción de la magnetita en **0,00757**. Con esa frontera cualquier
+gas la reduce entera. La tabla NIST-JANAF —que es la fuente que el propio módulo
+declara— la pone en **0,3222** a 900 °C, de acuerdo con el diagrama clásico de
+Baur–Glaessner.
+
+Eran **dos** defectos de datos, y los dos empujaban en el mismo sentido:
+
+**(a) El Cp de Fe₃O₄ extrapolado fuera de su rango.** Era un Maier–Kelley de
+rango bajo convertido a Shomate, `Cp = 111,8 + 0,106 T`, extendido hasta 1400 K.
+A 1173 K daba 236 J/mol/K. JANAF (tabla Fe-032) tiene una **transición lambda
+magnética en 900 K** por encima de la cual Cp = 200,832 J/mol/K constante hasta
+1870 K. Corregido con un ajuste Maier–Kelley a los ocho puntos de JANAF por
+debajo de 900 K (error máximo 0,23 J/mol/K) y el valor exacto por encima: las
+integrales de H y S cierran contra JANAF a 0,01 kJ y 0,008 J/K.
+
+**(b) FeO estequiométrico en lugar de wüstita.** La fase que de verdad coexiste
+con la magnetita es Fe(0,947)O (JANAF Fe-001), bastante menos estable. Con FeO
+estequiométrico la frontera sale en 0,052 en vez de 0,32: seis veces menos CO
+del necesario. Se añadió la especie `FeO_wustita`, que es el Shomate de FeO
+desplazado en ΔH = +8,2493 kJ/mol y ΔS = +1,0222 J/mol/K, y **sólo** las seis
+reacciones del par magnetita/wüstita/hierro la usan. Las reacciones en que el
+FeO entra como componente de otro compuesto (fayalita, ulvöspinela, hercinita)
+siguen con el FeO estequiométrico, porque los datos de esas fases están
+referidos a él: la ΔG de formación de la fayalita se queda en los −8,2722 kJ de
+siempre.
+
+**El desplazamiento no se ajustó contra el ensayo**: el objetivo era tabla
+primaria. Y se valida contra dos cosas que **no** entraron en el ajuste:
+
+| | modelo | JANAF |
+|---|---|---|
+| Frontera FeO/Fe a 900 °C | 0,7091 | 0,6843 |
+| Eutectoide de la wüstita | **613,7 °C** | **615,6 °C** |
+
+### 19.4 Y el «invariante robusto» no era independiente
+
+`calibracion.PARAMETROS_RESTRINGIDOS_FISICA` fija `k_magnetita = 0,20` con este
+comentario: *«seleccionado en la rama que conserva Fe3O4 a 720 s y reproduce
+CO/(CO+CO2)=0,00757»*. O sea que la constante se eligió para que el gas cayera
+sobre una frontera equivocada, y el resultado se citaba después como invariante
+termodinámico. Es el **cuarto** caso del patrón de dos errores que se compensan.
+
+Corregida la termodinámica, con los parámetros **por omisión** el 0-D da
+CO/(CO+CO₂) = 0,3227 frente a la frontera 0,3222, la magnetita **gana** un 8,6 %
+al heredar el hierro de la hematita, y la conversión de ilmenita sigue siendo
+exactamente cero. El enunciado se sostiene; el número era falso.
+
+### 19.5 El enfriamiento: ¿es un temple?
+
+Lo preguntó el laboratorio y hay que responderlo con números, porque de eso
+depende cómo se lee el imán. Por debajo de 570 °C la wüstita se descompone,
+4 FeO → Fe₃O₄ + Fe, y **los dos productos sí son magnéticos**:
+
+| | A m² por mol de Fe |
+|---|---|
+| magnetita de partida | 7,10 |
+| eutectoide completo | **8,37** |
+
+Es decir: **si el enfriamiento fuese lento, el aglomerado saldría más magnético
+que al empezar**, no menos. Como se observa lo contrario, la propia prueba del
+imán exige que la wüstita se conserve en buena parte. Eso es información nueva
+sobre el ensayo, obtenida sin ningún instrumento.
+
+`fisica/magnetismo.py` resuelve la curva por capacidad concentrada con radiación
+(ε = 0,80) y convección natural:
+
+| | crisol + tapa (48,5 g) | aglomerado solo (0,72 g) |
+|---|---|---|
+| Biot | 0,011 | 0,20 |
+| velocidad a 900 °C | 984 °C/min | 11.617 °C/min |
+| **velocidad al cruzar 570 °C** | **304 °C/min** | **3.788 °C/min** |
+| tiempo en la ventana 570–400 °C | 49,8 s | 3,9 s |
+| veredicto | **temple parcial** | temple |
+
+El umbral publicado para suprimir la transformación eutectoide por encima de
+700 °C es **1000 °C/min** (Zorc, Nagode y Kosec, *High Temperature Corrosion of
+Materials*, 2024). Sacar el crisol entero se queda tres veces por debajo: es
+rápido para un horno y lento para un temple. Por eso el observable se reporta
+como **banda entre dos cotas** y no como número único.
+
+**Consecuencia práctica para el laboratorio**: si interesa que el imán lea el
+estado que había a 900 °C, basta con volcar el aglomerado fuera del crisol al
+sacarlo. Sin el crisol se enfría dos órdenes de magnitud más rápido y sí es un
+temple.
+
+### 19.6 Lo que se añadió
+
+- `fisica/magnetismo.py`: M_s por fase con su referencia, temperaturas de orden,
+  mezcla lineal en masa, las dos cotas del enfriado, curva de enfriamiento y
+  veredicto de temple. La titanohematita se declara **CALIBRABLE** en
+  [0,4 – 10] A m²/kg porque su x = 0,49 cae justo sobre la transición de la
+  serie (y ≈ 0,45, Hunt Fig. 9) y el DRX no resuelve el orden Fe/Ti; da igual,
+  es el 0,5 % del total, y eso también se dice.
+- `tests/test_magnetismo.py`: dos falsadores contra la corrida real —al final
+  responde al imán, y decrece— más las propiedades del modelo puro.
+- Panel «Prueba del imán» en el visor, con las dos cotas y el veredicto del
+  enfriado. El cliente no codifica ningún dato magnético: los recibe en
+  `/api/config`.
+- Figura y macros del informe.
+
+### 19.7 De paso: la corrida del informe y la del sitio eran distintas
+
+`informe/construir.py` apuntaba por omisión a `resultados/simulacion_720s`, una
+carpeta con **328 NPZ de dos corridas mezcladas**, mientras el sitio publicaba
+`simulacion_720s_completa`. Además los tres scripts del informe reimplementaban
+a mano el recorte a la corrida vigente. El recorte pasó a `nucleo/salida.py`
+(`recortar_a_la_corrida_vigente` y `serie_vigente`) y ahora lo usan los cuatro
+consumidores: visor, selector, informe y pruebas. El informe elige por omisión
+la corrida más avanzada, igual que el visor.
+
+### 19.8 Pendientes, por orden de valor
+
+| # | Qué | Por qué |
+|---|---|---|
+| 1 | **Recalibrar `simulacion_v3`** con la compuerta a 450 °C y la termodinámica corregida | `k_magnetita = 0,20` se eligió contra una frontera equivocada (§19.4) y ya no puede citarse como restricción física. Es lo que desbloquea todo lo demás. |
+| 2 | **VSM del aglomerado** a varios tiempos | Convertiría la prueba del imán de cualitativa en medida y fijaría el reparto Fe3O4/FeO directamente. Es lo más barato del laboratorio y lo que más rinde. |
+| 3 | Registrar la curva de enfriamiento real | El modelo dice temple parcial (304 °C/min contra un umbral de 1000). Con un termopar se cerraría la banda de §19.5. |
+| 4 | Malla media hasta 130 s (~5 h) | Extendería la independencia de malla a la ventana plástica. |
+| 5 | Radiación mufla→crisol con factores de vista geométricos | Ahora es conducción por el gas circundante. |
+| 6 | Actividad del Fe2O3 dentro de la titanohematita | Medida y declarada despreciable para este par (mueve la frontera de 2,3e-5 a 1,8e-4, tres órdenes por debajo del gas), pero sin implementar. |
+| 7 | Empaquetado con PyInstaller | Un `.exe` que no exija Python instalado. |
+| 8 | Cierre de masa del 1,88 % (hidrógeno del alquitrán agrupado en CH4) | Decisión de modelo: renormalizar movería la curva ya ajustada. |
+| 9 | `LineSegments2` para líneas gruesas en la interfaz | Cosmético. |
+
+Nada de esto es urgente frente a lo que falta del **laboratorio**. La prueba del
+imán acaba de demostrar hasta qué punto: una observación cualitativa, sin
+instrumento, destapó dos defectos termoquímicos que llevaban escondidos desde el
+principio y que ningún ajuste de la curva de masa habría revelado.
+
+### 19.9 LA DISCREPANCIA QUE QUEDA ABIERTA
+
+Es lo más útil de todo el capítulo, y no se ha tocado.
+
+Con la termodinámica corregida el modelo **ya no queda falsado**: al final del
+ensayo sigue habiendo magnetita (97,2 % de la inicial) y el aglomerado responde
+al imán. Pero el modelo **se congela hacia los 150 s**: agotado el volátil no
+queda reductor, la gasificación del char está prácticamente apagada
+(Da ≈ 1,6×10⁻¹⁷) y ninguna fase se mueve más. Su predicción es que un aglomerado
+sacado a los 300 s y otro a los 720 s responden al imán **igual**.
+
+El laboratorio dice que **sigue** perdiendo capacidad magnética con el tiempo.
+Eso no se reproduce.
+
+Trazas del modelo (cota de temple, sobre el lecho):
+
+| t (s) | Fe₃O₄ (µmol) | FeO (µmol) | Fe (% del Fe) | M (A m²/kg) | momento (mA m²) | masa (g) |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 731,1 | 0 | 0 | 17,77 | 15,66 | 0,881 |
+| 60 | 838,2 | 0 | 0 | 21,03 | 17,93 | 0,853 |
+| 100 | 785,4 | 158,9 | 0,48 | **25,39** | 16,95 | 0,668 |
+| 140 | 710,9 | 353,4 | 1,62 | 23,60 | 15,72 | 0,666 |
+| ≥150 | **710,8** | **353,7** | **1,62** | **23,59** | **15,72** | 0,666 |
+
+Dos lecturas hay que hacer a la vez, y por eso se reportan las dos:
+
+- La **magnetización específica** sube un 33 % respecto del inicio. Gran parte de
+  esa subida **no es química de hierro**: el lecho pierde el 24 % de su masa al
+  devolatilizarse, y eso sube el cociente sin que cambie ninguna fase.
+- El **momento total** empieza en 15,66 mA m², sube a 17,93 (hematita → magnetita)
+  y vuelve a 15,72. En neto, la química del hierro es casi un empate.
+
+**A dónde apunta la discrepancia.** Para que la magnetita siga reduciéndose
+después de los 150 s tiene que seguir habiendo CO, y el único carbono disponible
+es el char, que sigue ahí (24.000 mol/m³ de media) junto con CO₂ a 900 °C, donde
+el equilibrio de Boudouard favorece fuertemente al CO. Lo que falta es cinética:
+`k_boudouard` es **uno de los parámetros que `calibracion.py` declara NO
+identificables** con la curva de pérdida de masa.
+
+> **La prueba del imán sí podría identificarlo.** Sería el primer observable del
+> proyecto que restringe `k_boudouard`. Una curva de magnetización de saturación
+> contra tiempo —un VSM de una tarde— lo fijaría.
+
+No se ha ajustado. Ajustar `k_boudouard` hasta que la curva baje sería
+exactamente el error que este proyecto ya ha pagado cuatro veces. Queda como
+`tests/test_magnetismo.py::test_el_magnetismo_sigue_bajando_despues_de_los_150_segundos`,
+marcada `xfail(strict=True)`: avisará el día en que el modelo la reproduzca.

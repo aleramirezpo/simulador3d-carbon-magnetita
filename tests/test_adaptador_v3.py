@@ -42,17 +42,33 @@ def test_masa_inicial_repartida_suma_exactamente_un_gramo():
 
 
 def test_mineralogia_por_celda_respeta_rietveld():
+    """El reparto por celda reproduce el Rietveld de REF-M a precision de maquina.
+
+    Las fracciones ya no se escriben aqui: se leen de `mineralogia`, que es la
+    fuente unica. La version anterior fijaba a mano [0,707 / 0,173 / 0,109 /
+    0,011], que era el refinamiento viejo -- el que se tomo de dos PNG y cuyas
+    fichas cristalograficas resultaron ser incorrectas en tres de cuatro casos.
+    Escribir aqui las cifras nuevas repetiria el mismo error de duplicarlas.
+    """
+
     forma = (3, 2, 2)
     volumen = np.full(forma, 2.0e-9)
     solido = ad.estado_inicial_celda(np.ones(forma), volumen)
     fases = ("Fe3O4", "FeTiO3", "Fe2O3", "SiO2")
+    esperado = np.array([
+        ad.mineralogia.COMPOSICION_RIETVELD[m]["w_pct"] / 100.0
+        for m in ("magnetita", "ilmenita", "hematita", "cuarzo")
+    ])
     masas = np.array(
         [
             np.sum(solido[f] * volumen) * ad.MASAS_MOLARES_SOLIDO_KG_MOL[f]
             for f in fases
         ]
     )
-    np.testing.assert_allclose(masas / masas.sum(), [0.707, 0.173, 0.109, 0.011], rtol=0, atol=5e-16)
+    np.testing.assert_allclose(masas / masas.sum(), esperado, rtol=0, atol=5e-16)
+    # Y que sea el concentrado magnetico: sin cuarzo y con la magnetita dominando.
+    assert esperado[3] == 0.0
+    assert esperado[0] > 0.75
 
 
 def test_tasas_solidas_conservan_fe_ti_si():

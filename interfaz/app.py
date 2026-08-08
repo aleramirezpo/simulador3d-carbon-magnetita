@@ -19,7 +19,12 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import numpy as np
 
-from nucleo.salida import cargar_instantanea, cargar_serie, guardar_instantanea
+from nucleo.salida import (
+    cargar_instantanea,
+    cargar_serie,
+    guardar_instantanea,
+    recortar_a_la_corrida_vigente,
+)
 from nucleo.perfil import CrisolPerfilado, PERFIL_ENSAYO
 
 from .datos_sinteticos import (
@@ -58,6 +63,20 @@ def _ficha_hinchamiento() -> dict[str, Any]:
     try:
         from fisica.hinchamiento import resumen
         return resumen(fraccion_inerte=0.25)
+    except Exception:
+        return {}
+
+
+def _ficha_magnetismo() -> dict[str, Any]:
+    """Modelo magnético y análisis del enfriado, para el panel del visor.
+
+    Incluye el veredicto sobre si sacar el crisol al aire es o no un temple,
+    porque de eso depende cómo hay que leer la prueba del imán. Import
+    defensivo, igual que el resto de fichas.
+    """
+    try:
+        from fisica.magnetismo import resumen
+        return resumen()
     except Exception:
         return {}
 
@@ -265,33 +284,10 @@ def _serie_tolerante(directorio: Path) -> list[dict[str, Any]]:
     return indice
 
 
-def _recortar_a_la_corrida_vigente(
-    elementos: list[Any], tiempo_de: Any, escritura_de: Any,
-) -> list[Any]:
-    """Descarta los NPZ que sobraron de una corrida anterior.
-
-    Una corrida nueva sobre el mismo directorio reescribe primero el t=0, pero
-    no borra las instantáneas tardías de la anterior: quedan mezcladas dos
-    predicciones distintas en la misma línea temporal. Se conservan sólo las
-    escritas a partir del t=0 más reciente.
-
-    Vive aparte porque hay DOS sitios que necesitan este recorte —el que abre
-    la serie y el que elige qué corrida abrir— y mientras cada uno tuvo su
-    propio criterio no coincidieron: el selector puntuaba las carpetas por los
-    nombres de archivo, incluidos los de la corrida muerta, y prefería una
-    carpeta rancia sobre una corrida nueva y completa. La interfaz abría
-    entonces una serie mucho más corta de la que creía haber elegido.
-    """
-    inicios = [
-        elemento for elemento in elementos
-        if abs(float(tiempo_de(elemento))) <= 1.0e-12
-    ]
-    if not inicios:
-        return list(elementos)
-    corte = max(escritura_de(elemento) for elemento in inicios)
-    return [
-        elemento for elemento in elementos if escritura_de(elemento) >= corte
-    ]
+# El recorte vive en `nucleo.salida`, que es de donde lo toman también el
+# informe y las pruebas. Se conserva el nombre privado por compatibilidad con
+# quien ya lo importaba de aquí.
+_recortar_a_la_corrida_vigente = recortar_a_la_corrida_vigente
 
 
 class EstadoAplicacion:
@@ -411,6 +407,9 @@ class EstadoAplicacion:
             "fases": _paleta_fases(),
             # Índice de hinchamiento 8 del carbón, atenuado por la magnetita.
             "hinchamiento": _ficha_hinchamiento(),
+            # Magnetización del sólido a temperatura ambiente y análisis del
+            # enfriado: es lo que contrasta con la prueba del imán.
+            "magnetismo": _ficha_magnetismo(),
             "referencias_adimensionales": {
                 "Re_particula": 0.053,
                 "Ra": 188.0,
@@ -454,8 +453,41 @@ class EstadoAplicacion:
                 "CO_medio_mol_m3": float(np.mean(campos["c_especies"]["CO"][interior])),
                 "conversion_media": conversion,
                 "cohesion_max": float(np.max(campos["cohesion"])),
+                **self._magnetismo_de(campos, lecho),
             })
         return filas
+
+    def _magnetismo_de(self, campos: dict[str, Any], lecho: Any) -> dict[str, float]:
+        """Magnetización del lecho, del metadato si viene y si no calculada.
+
+        Las corridas anteriores a este observable no lo llevan en los
+        metadatos; recalcularlo aquí evita que la serie salga vacía y que haya
+        que rehacer una corrida de 45 minutos sólo para poder dibujarla.
+        """
+        magnetismo = (campos.get("metadatos") or {}).get("magnetismo")
+        if isinstance(magnetismo, dict) and "magnetizacion_temple_Am2_kg" in magnetismo:
+            return {
+                "magnetizacion_Am2_kg": float(magnetismo["magnetizacion_temple_Am2_kg"]),
+                "magnetizacion_lenta_Am2_kg": float(
+                    magnetismo.get("magnetizacion_enfriamiento_lento_Am2_kg", 0.0)
+                ),
+            }
+        try:
+            from fisica.magnetismo import cotas_magnetizacion_Am2_kg
+
+            x, y, z = (np.asarray(campos[k], dtype=float) for k in ("x", "y", "z"))
+            volumen = float(np.diff(x).mean() * np.diff(y).mean() * np.diff(z).mean())
+            solido = {
+                fase: np.asarray(valores)
+                for fase, valores in campos["solido"].items()
+            }
+            cotas = cotas_magnetizacion_Am2_kg(solido, volumen)
+            return {
+                "magnetizacion_Am2_kg": float(cotas["temple"]),
+                "magnetizacion_lenta_Am2_kg": float(cotas["enfriamiento_lento"]),
+            }
+        except Exception:
+            return {}
 
     def cerrar(self) -> None:
         if self._temporal is not None:
@@ -593,7 +625,12 @@ def directorio_predeterminado(base: str | Path = "resultados") -> Path:
     if not raiz.is_dir():
         return clasico
     mejor: tuple[float, int, Path] | None = None
-    for carpeta in sorted(p for p in raiz.iterdir() if p.is_dir()):
+    # Las carpetas que empiezan por guion bajo se ignoran a propósito: es la
+    # forma de apartar una corrida superada sin borrarla. Hizo falta al corregir
+    # la termodinámica, porque la corrida anterior seguía siendo completa —los
+    # mismos 720 s y las mismas 145 instantáneas— y competía con la nueva por
+    # el desempate.
+    for carpeta in sorted(p for p in raiz.iterdir() if p.is_dir() and not p.name.startswith("_")):
         archivos = []
         for ruta in carpeta.glob("instantanea_*us.npz"):
             t = _tiempo_de_nombre(ruta.name)

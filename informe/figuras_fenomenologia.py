@@ -389,6 +389,62 @@ def figura_campos(instantaneas):
     _guardar(fig, "fig_fen_campos.pdf")
 
 
+# ---------------------------------------------------------------- magnetismo
+
+def figura_magnetismo(s, enfriamiento):
+    """La prueba del iman y el enfriado, que es lo que decide como leerla.
+
+    Tres paneles y no dos: la magnetizacion especifica y el momento total dicen
+    cosas distintas y hay que poder verlas por separado. El lecho pierde una
+    cuarta parte de su masa al devolatilizarse, y eso sube la magnetizacion
+    especifica sin que cambie ninguna fase de hierro; el momento no se entera de
+    esa dilucion y sigue solo a la quimica. Un eje gemelo los superponia, pero
+    con dos escalas distintas en el mismo dibujo se leia mal y ademas chocaba
+    con el panel contiguo.
+    """
+    t = np.asarray(s["t"])
+    m = np.asarray(s["magnetizacion_Am2_kg"])
+    m_lenta = np.asarray(s["magnetizacion_lenta_Am2_kg"])
+    momento = np.asarray(s["momento_magnetico_Am2"]) * 1e3
+
+    fig, (a1, a2, a3) = plt.subplots(1, 3, figsize=(9.8, 3.1))
+
+    a1.fill_between(t, m, m_lenta, color=AZUL, alpha=0.15,
+                    label="banda segun el enfriado")
+    a1.plot(t, m, color=AZUL, lw=1.8, label="wustita conservada", zorder=3)
+    a1.plot(t, m_lenta, color=ROJO, lw=1.2, ls="--",
+            label="wustita descompuesta", zorder=3)
+    a1.set_xlabel("tiempo en la mufla [s]")
+    a1.set_ylabel("magnetizacion en frio [A m$^2$/kg]")
+    a1.set_xlim(0, t[-1])
+    a1.set_ylim(bottom=0)
+    a1.legend(loc="lower right", fontsize=6.5)
+    _marcar_hitos(a1, y=0.30)
+    a1.set_title("Sigue respondiendo al iman", fontsize=9)
+
+    a2.plot(t, momento, color=MORADO, lw=1.8)
+    a2.set_xlabel("tiempo en la mufla [s]")
+    a2.set_ylabel("momento total [mA m$^2$]")
+    a2.set_xlim(0, t[-1])
+    a2.set_ylim(bottom=0)
+    _marcar_hitos(a2, y=0.30)
+    a2.set_title("Sin la dilucion: solo la quimica", fontsize=9)
+
+    T = np.asarray(enfriamiento["temperatura_K"]) - 273.15
+    tiempo = np.asarray(enfriamiento["tiempo_s"])
+    a3.plot(tiempo, T, color=NARANJA, lw=1.8)
+    a3.axhline(570.0, color=GRIS, lw=0.9, ls=":")
+    a3.annotate("570 °C · eutectoide", xy=(tiempo[-1], 570.0),
+                xytext=(0.30 * tiempo[-1], 620.0), fontsize=7, color=GRIS)
+    a3.set_xlabel("tiempo fuera de la mufla [s]")
+    a3.set_ylabel("temperatura del crisol [°C]")
+    a3.set_xlim(0, tiempo[-1])
+    a3.set_title(
+        f"{enfriamiento['velocidad_en_eutectoide_C_min']:.0f} °C/min al cruzarlo "
+        f"(umbral {enfriamiento['umbral_supresion_C_min']:.0f})", fontsize=9)
+    _guardar(fig, "fig_fen_magnetismo.pdf")
+
+
 def main() -> int:
     directorio = sys.argv[1] if len(sys.argv) > 1 else None
     datos = diagnosticos(directorio)
@@ -401,6 +457,7 @@ def main() -> int:
     figura_gases(s, datos["especies"])
     figura_aglomerado(s)
     figura_adimensionales(s, datos["Ra_critico"])
+    figura_magnetismo(s, datos["enfriamiento"])
     figura_campos(datos["instantaneas"])
     return 0
 

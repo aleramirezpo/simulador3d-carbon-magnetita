@@ -28,9 +28,19 @@ def ejecutar(orden, descripcion, cwd=RAIZ):
 
 
 def main():
-    datos = sys.argv[1] if len(sys.argv) > 1 else str(RAIZ / "resultados" / "simulacion_720s")
+    # Sin argumento, la corrida más avanzada de `resultados/`: el mismo criterio
+    # que el visor y que `construir_fenomenologia.py`.
+    sys.path.insert(0, str(RAIZ))
+    from interfaz.app import directorio_predeterminado
+
+    datos = sys.argv[1] if len(sys.argv) > 1 else str(directorio_predeterminado(RAIZ / "resultados"))
     ejecutar([sys.executable, str(AQUI / "figuras_informe.py"), datos], "figuras")
     ejecutar([sys.executable, str(AQUI / "tablas_informe.py"), datos], "tablas y párrafos")
+    # El informe usa además las macros y la figura de magnetismo que genera la
+    # cadena de fenomenología. Se ejecutan aquí para que `informe.pdf` no pueda
+    # construirse nunca con cifras de una corrida distinta a la suya.
+    ejecutar([sys.executable, str(AQUI / "figuras_fenomenologia.py"), datos], "figuras de fenomenología")
+    ejecutar([sys.executable, str(AQUI / "tablas_fenomenologia.py"), datos], "macros de fenomenología")
 
     latex = shutil.which("pdflatex") or shutil.which("xelatex")
     if latex is None:

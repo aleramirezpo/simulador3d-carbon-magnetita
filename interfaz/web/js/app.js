@@ -77,6 +77,7 @@ const estado = {
   particulas: null,
   faseParticulas: 0,
   fasesVistas: new Map(),
+  magnetizacionInicial: undefined,
   reproduciendo: false,
   velocidad: 1,
   cacheFotogramas: null,
@@ -493,6 +494,50 @@ function fraccionesDeFase(f) {
   return { fracciones, total };
 }
 
+/**
+ * Magnetización de saturación del lecho a temperatura ambiente, en A m²/kg.
+ *
+ * Igual que con la mineralogía, aquí NO se codifica ningún dato magnético: las
+ * M_s por fase y las masas molares llegan del servidor en `config.magnetismo` y
+ * `config.fases`. Esto sólo suma.
+ *
+ * Devuelve las dos cotas. `temple` conserva la wüstita, que a temperatura
+ * ambiente no responde al imán; `lenta` la descompone entera por la vía
+ * eutectoide en magnetita más hierro, que sí responden.
+ */
+function magnetizacionDelLecho(f) {
+  const mag = estado.config?.magnetismo;
+  const paleta = estado.config?.fases;
+  if (!mag?.magnetizacion_saturacion_Am2_kg || !paleta?.campos_solidos) return null;
+  const dx = (f.x[1] - f.x[0]) / 1000; const dy = (f.y[1] - f.y[0]) / 1000; const dz = (f.z[1] - f.z[0]) / 1000;
+  const volumenCelda = dx * dy * dz;
+  let momento = 0; let momentoLento = 0; let masa = 0; let molesFeO = 0;
+  for (const [campo, clave] of Object.entries(paleta.campos_solidos)) {
+    const valores = f.solido?.[campo];
+    const fase = clave ? paleta.fases[clave] : null;
+    if (!valores || !fase || !(fase.masa_molar_g_mol > 0)) continue;
+    // Todo el sólido, sin filtrar por etiqueta: el 12 % de la carga está en
+    // celdas cortadas por la frontera del lecho, que llevan etiqueta de pared o
+    // de gas porque su centro cae fuera.
+    let suma = 0;
+    for (let q = 0; q < valores.length; q += 1) suma += valores[q];
+    const moles = suma * volumenCelda;                       // mol
+    const masaFase = moles * fase.masa_molar_g_mol / 1000;   // kg
+    masa += masaFase;
+    momento += masaFase * (mag.magnetizacion_saturacion_Am2_kg[campo] || 0);
+    if (campo === 'FeTiO3') momento += masaFase * mag.ms_titanohematita_Am2_kg * mag.razon_titanohematita_sobre_ilmenita;
+    if (campo === 'FeO') molesFeO += moles;
+  }
+  if (!(masa > 0)) return null;
+  const eut = mag.eutectoide || {};
+  const mFe3O4 = paleta.fases.Fe3O4?.masa_molar_g_mol || 0;
+  const mFe = paleta.fases.Fe?.masa_molar_g_mol || 0;
+  momentoLento = momento
+    + molesFeO * (eut.moles_Fe3O4_por_mol_FeO || 0) * mFe3O4 / 1000 * (mag.magnetizacion_saturacion_Am2_kg.Fe3O4 || 0)
+    + molesFeO * (eut.moles_Fe_por_mol_FeO || 0) * mFe / 1000 * (mag.magnetizacion_saturacion_Am2_kg.Fe || 0);
+  return { temple: momento / masa, lenta: momentoLento / masa };
+}
+
 /** Volumen del aglomerado: celdas por encima del umbral operativo 0,5. */
 function volumenAglomeradoCm3(f) {
   const dx = (f.x[1] - f.x[0]) / 10; const dy = (f.y[1] - f.y[0]) / 10; const dz = (f.z[1] - f.z[0]) / 10;
@@ -548,6 +593,24 @@ function actualizarLeyendaFases(f) {
     if (reciente) item.title = `${item.title.split(' · Apareció')[0]} · Apareció a t = ${formatear(aparicion)} s`;
   }
   $('#fases-activas').textContent = `${presentes} presentes · predicción`;
+  actualizarPanelMagnetismo(f);
+}
+
+/** Panel de la prueba del imán: las dos cotas y cuánto queda del inicial. */
+function actualizarPanelMagnetismo(f) {
+  const destino = $('#valor-magnetizacion');
+  if (!destino) return;
+  const m = magnetizacionDelLecho(f);
+  if (!m) { destino.textContent = 'no disponible'; return; }
+  if (estado.magnetizacionInicial === undefined && f.t <= 0.001) {
+    estado.magnetizacionInicial = m.temple;
+  }
+  destino.textContent = `${formatear(m.temple)} A m²/kg`;
+  $('#valor-magnetizacion-lenta').textContent = `${formatear(m.lenta)} A m²/kg`;
+  const inicial = estado.magnetizacionInicial;
+  $('#magnetismo-relativo').textContent = inicial > 0
+    ? `${formatear(100 * m.temple / inicial)} % del inicial`
+    : '—';
 }
 
 function configurarAyudantesCorte() {
@@ -1378,6 +1441,13 @@ async function iniciar() {
     if (hin?.factor_mezcla) {
       $('#valor-atenuacion').textContent =
         `×${formatear(hin.factor_mezcla)} frente a ×${formatear(hin.factor_carbon_solo)} del carbón solo`;
+    }
+    const enf = estado.config.magnetismo?.enfriamiento;
+    if (enf?.veredicto) {
+      $('#valor-temple').textContent =
+        `${formatear(enf.velocidad_en_eutectoide_C_min)} °C/min en el eutectoide · ${enf.veredicto.split(':')[0]}`;
+      $('#valor-temple').title =
+        `${enf.veredicto}. Umbral publicado para suprimir la transformación: ${enf.umbral_supresion_C_min} °C/min.`;
     }
     const p = estado.config.particulas;
     const factorRadio = estado.sistemaParticulas.factorRadioRender;

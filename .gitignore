@@ -14,6 +14,9 @@ _tmp_pip/
 resultados/simulacion*/
 resultados/convergencia_media/
 resultados/*.log
+# Las carpetas que empiezan por guion bajo son corridas apartadas a propósito:
+# `interfaz.app.directorio_predeterminado` las ignora al elegir cuál abrir.
+resultados/_*/
 
 # `sitio/` SÍ se versiona, aunque sea un artefacto generado: es lo que GitHub
 # Pages publica, y no hay forma de reconstruirlo en el servidor de Pages porque

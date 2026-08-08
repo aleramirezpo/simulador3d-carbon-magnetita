@@ -22,6 +22,7 @@ if str(RAIZ.parent / "simulacion_v3" / "src") not in sys.path:
     sys.path.insert(0, str(RAIZ.parent / "simulacion_v3" / "src"))
 
 from fisica.adaptador_v3 import MASAS_MOLARES_SOLIDO_KG_MOL  # noqa: E402
+from fisica import magnetismo  # noqa: E402
 from fisica.fases_visuales import volumenes_molares_cm3_mol  # noqa: E402
 from interfaz.app import (  # noqa: E402
     _recortar_a_la_corrida_vigente,
@@ -152,6 +153,11 @@ def diagnosticos(directorio: str | Path | None = None) -> dict:
         "volumen_lecho_mm3": [],
         "volumen_solido_mm3": [], "D_solido_mm": [],
         "u_max": [], "CO_sobre_COx": [],
+        # Prueba del iman: magnetizacion de saturacion del lecho A TEMPERATURA
+        # AMBIENTE, con las dos cotas segun que la wustita se conserve al
+        # enfriar o se descomponga. Vease `fisica/magnetismo.py`.
+        "magnetizacion_Am2_kg": [], "magnetizacion_lenta_Am2_kg": [],
+        "momento_magnetico_Am2": [],
         "Re_p": [], "Re_celda": [], "Pe_termico": [], "Pe_masico": [],
         "Da": [], "Ra": [],
     }
@@ -254,6 +260,23 @@ def diagnosticos(directorio: str | Path | None = None) -> dict:
         filas["D_solido_mm"].append(_diametro_equivalente_mm(volumen_solido))
         filas["u_max"].append(float(numeros.get("u_max_m_s", np.nan)))
         filas["CO_sobre_COx"].append(CO / (CO + CO2) if (CO + CO2) > 0 else np.nan)
+        # Sobre todo el solido, igual que `_masas_por_fase_g`: el 12 % de la
+        # carga vive en celdas cortadas por la frontera del lecho.
+        cotas = magnetismo.cotas_magnetizacion_Am2_kg(
+            {f: np.asarray(v) for f, v in campos["solido"].items()},
+            volumen_celda,
+        )
+        filas["magnetizacion_Am2_kg"].append(cotas["temple"])
+        filas["magnetizacion_lenta_Am2_kg"].append(cotas["enfriamiento_lento"])
+        # El momento total separa la quimica del hierro de la simple
+        # dilucion: el lecho pierde el 28 % de su masa, y eso sube la
+        # magnetizacion especifica sin que cambie ninguna fase.
+        filas["momento_magnetico_Am2"].append(
+            magnetismo.momento_magnetico_Am2(
+                {f: np.asarray(v) for f, v in campos["solido"].items()},
+                volumen_celda,
+            )
+        )
         filas["Re_p"].append(float(numeros.get("Re_particula", np.nan)))
         filas["Re_celda"].append(float(numeros.get("Re_celda", np.nan)))
         filas["Pe_termico"].append(float(numeros.get("Pe_termico", np.nan)))
@@ -277,6 +300,11 @@ def diagnosticos(directorio: str | Path | None = None) -> dict:
             ((serie[-1][1]["metadatos"] or {}).get("numeros_adimensionales") or {}
              ).get("Ra_critico", np.nan)),
         "serie": {clave: np.asarray(valores).tolist() for clave, valores in filas.items()},
+        # Curva de enfriamiento del crisol al aire y veredicto sobre si eso es
+        # un temple. Decide cómo hay que leer la prueba del imán, porque la
+        # wüstita se descompone por debajo de 570 °C en dos fases que sí son
+        # magnéticas.
+        "enfriamiento": magnetismo.veredicto_de_temple(),
         "instantaneas": serie,
     }
 

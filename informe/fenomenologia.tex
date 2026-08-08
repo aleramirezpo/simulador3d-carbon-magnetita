@@ -17,7 +17,7 @@
 \usepackage{enumitem}
 \usepackage{caption}
 
-\sisetup{output-decimal-marker={,}, group-separator={.}, group-minimum-digits=4}
+\sisetup{output-decimal-marker={,}, group-separator={.}, group-minimum-digits=4, group-digits=integer}
 \captionsetup{font=small, labelfont=bf}
 
 % Cifras de la corrida, generadas por tablas_fenomenologia.py.
@@ -59,22 +59,26 @@ ninguna está escrita a mano.
 \medskip
 
 \noindent
-\ojo{El resultado central} es que el gas del interior se estabiliza en
-CO/(CO+CO$_2$) $=$ \datGas{}\,\%, un valor que queda
-\emph{entre} dos fronteras termodinámicas: por encima de la que exige la
-magnetita (\datUmbralMagnetita{}\,\%) y muy por debajo de la
-que exigen la wüstita (\datUmbralWustita{}\,\%) y la ilmenita
-(\datUmbralIlmenita{}\,\%). Eso decide, de una sola vez, todo
-lo demás: la cascada del hierro avanza hasta wüstita y se para ahí, y la
-ilmenita ---que necesita el gas más reductor de todos--- no se mueve.
+\ojo{El resultado central} es que el gas del interior se \emph{apoya} en la
+frontera Fe$_3$O$_4$/FeO. Acaba en CO/(CO+CO$_2$) $=$ \datGas{}\,\% y esa
+frontera está en \datUmbralMagnetita{}\,\%: no la cruza y se queda, porque en
+cuanto reduce se oxida y la afinidad cae a cero. Muy por encima quedan las que
+exigen la wüstita (\datUmbralWustita{}\,\%) y la ilmenita
+(\datUmbralIlmenita{}\,\%), que por eso no se alcanzan. Eso decide, de una sola
+vez, todo lo demás: la hematita se agota, la magnetita \textbf{sobrevive}
+---coexistiendo con la wüstita que ella misma produce--- y la ilmenita, que
+necesita el gas más reductor de todos, no se mueve.
 \medskip
 
 \noindent
 \ojo{ADVERTENCIA.} Todo lo que sigue es \textbf{predicción del modelo}. Toda la
 caracterización disponible del material es \emph{anterior} al ensayo, de modo
-que ninguna fase predicha tiene contraste experimental. Lo único medido con lo
-que se contrasta es la curva de pérdida de masa (ocho puntos) y tres
-observaciones cualitativas de la cronología.
+que ninguna fase predicha tiene contraste experimental directo. Lo único medido
+con lo que se contrasta es la curva de pérdida de masa (ocho puntos), tres
+observaciones cualitativas de la cronología y una cuarta sobre el producto: que
+al final del ensayo el aglomerado \emph{sigue pegándose al imán}. Esa última es
+la que obliga a que la magnetita sobreviva, y fue la que destapó que la frontera
+Fe$_3$O$_4$/FeO estaba equivocada por un factor 42.
 \end{abstract}
 
 \tableofcontents
@@ -302,17 +306,35 @@ la termodinámica, cada uno más difícil que el anterior:
 \;\longrightarrow\; \mathrm{FeO} \;\longrightarrow\; \mathrm{Fe}
 \]
 La hematita desaparece por completo (\datHematitaInicial{} \si{\milli\gram}
-$\to$ 0). La magnetita desaparece por completo
-(\datMagnetitaInicial{} \si{\milli\gram} $\to$ 0). Y toda
-esa materia acaba en wüstita: \datFeo{}
-\si{\milli\gram}. El hierro metálico se queda en
-\datFe{} \si{\milli\gram}, que es apenas el
-\datPctFeMetal{}\,\% del hierro total.
+$\to$ 0): su frontera de reducción está tres órdenes de magnitud por debajo del
+gas del lecho, así que no tiene defensa. Pero la cascada \textbf{se detiene
+ahí}. La magnetita \textbf{sobrevive al ensayo}: pasa de
+\datMagnetitaInicial{} a \datMagnetitaFinal{} \si{\milli\gram}, un
+\datMagnetitaVariacion{}\,\%. Son dos efectos que se restan --- gana el hierro
+que suelta la hematita y pierde una parte al pasar a wüstita ---, y el saldo es
+una merma pequeña. La wüstita se queda en \datFeo{} \si{\milli\gram} y el hierro
+metálico en \datFe{} \si{\milli\gram}, el \datPctFeMetal{}\,\% del hierro en
+masa.
+
+La razón es que el gas se tampona \emph{sobre} la frontera Fe$_3$O$_4$/FeO: al
+reducir la hematita se oxida, la afinidad cae a cero y la reducción se para
+donde coexisten las dos fases. Esa frontera está en CO/(CO+CO$_2$) =
+\datUmbralMagnetita{}\,\% a \SI{900}{\celsius}, y el gas del lecho acaba en
+\datGas{}\,\%. Es un resultado, no un ajuste: sale con los parámetros por
+omisión.
+
+\ojo{Aquí había un defecto grave, y lo destapó la prueba del imán.} La versión
+anterior de este documento decía que la magnetita desaparecía por completo,
+porque la termodinámica ponía esa frontera en \qty{0.76}{\percent} de CO en vez
+de \qty{32}{\percent}: un factor 42, resultado de extrapolar el $C_p$ de la
+magnetita fuera de su rango y de usar FeO estequiométrico en lugar de wüstita
+Fe$_{0{,}947}$O. Con la frontera baja, cualquier gas reducía toda la magnetita
+y el aglomerado salía no magnético, que es justo lo contrario de lo observado.
 
 \begin{figure}[H]\centering
 \includegraphics[width=\linewidth]{fig_fen_hierro.pdf}
-\caption{La cascada se detiene en wüstita. A la derecha, el hierro metálico en
-su propia escala: son trazas.}
+\caption{La cascada se detiene en la magnetita, que sobrevive al ensayo. A la
+derecha, el hierro metálico en su propia escala: son trazas.}
 \label{fig:hierro}
 \end{figure}
 
@@ -354,23 +376,28 @@ compara con el gas que realmente hay en la corrida
 \begin{figure}[H]\centering
 \includegraphics[width=\linewidth]{fig_fen_gases.pdf}
 \caption{Izquierda: los gases del interior. Derecha: la razón
-CO/(CO+CO$_2$) frente a las tres fronteras. El gas se queda cómodamente por
-encima de la de la magnetita, y muy lejos de las otras dos. Ése es todo el
-argumento.}
+CO/(CO+CO$_2$) frente a las tres fronteras. El gas se \emph{clava} sobre la de
+la magnetita ---no la cruza, se apoya en ella--- y se queda muy lejos de la de
+la ilmenita. Ése es todo el argumento.}
 \label{fig:gases}
 \end{figure}
 
 \noindent
 La ilmenita exige \datUmbralIlmenita{}\,\% de CO. El gas
-ofrece \datGas{}\,\%. Faltan cuarenta puntos porcentuales, y
-no es una diferencia que se cierre esperando más tiempo: es el estado de
-equilibrio del sistema. Para reducir la ilmenita habría que subir la
-temperatura bastante por encima de \SI{900}{\celsius}, o cambiar la atmósfera.
+ofrece \datGas{}\,\%. La diferencia es de decenas de puntos porcentuales, y no
+es algo que se cierre esperando más tiempo: es el estado de equilibrio del
+sistema. Para reducir la ilmenita habría que subir la temperatura bastante por
+encima de \SI{900}{\celsius}, o cambiar la atmósfera.
 
-Hay además una razón estructural que agrava lo anterior y que viene del DRX:
-el hierro de la ilmenita está en \emph{lamas exsueltas dentro de los granos de
-titanomagnetita}. Aunque la termodinámica lo permitiera, ese hierro está peor
-expuesto que el de la magnetita libre.
+Hay además una razón estructural que agrava lo anterior y que viene del DRX.
+En este concentrado el titanio no está como ilmenita libre sino dentro de una
+\emph{titanohematita}, un miembro intermedio de la serie hematita--ilmenita
+($x = 0{,}49$), y esa fase está \emph{intercrecida dentro de los granos de
+magnetita}. El propio refinamiento lo respalda: su tamaño aparente de
+cristalito es \SI{22.8}{\nano\meter} en la fracción magnética frente a
+\SI{83.3}{\nano\meter} en la no magnética, que es la firma de unas lamas finas
+de exsolución frente a granos sueltos. Aunque la termodinámica lo permitiera,
+ese hierro está peor expuesto que el de la magnetita que lo hospeda.
 
 \paragraph{Cuarzo y cenizas.} No cambian por la misma clase de razón: no hay
 ninguna ruta accesible a \SI{900}{\celsius}. Y la fayalita
@@ -404,8 +431,18 @@ carbono no significa que la reducción pueda continuar.} El carbono fijo termina
 en \datCarbono{} \si{\milli\gram}, que es lo mismo con que empezó salvo una
 parte en diez millones. No se consume porque la reacción de Boudouard
 (C + CO$_2$ $\rightarrow$ 2\,CO), que es la que
-regeneraría el CO, es demasiado lenta a esta temperatura para mover el sistema
-en \SI{720}{\second}.
+regeneraría el CO, es demasiado lenta \emph{en el modelo} a esta temperatura
+para mover el sistema en \SI{720}{\second}.
+
+\ojo{Y ahí está la discrepancia abierta del trabajo.} El laboratorio observa que
+el aglomerado sigue perdiendo respuesta al imán cuanto más tiempo pasa en la
+mufla, y este modelo no lo reproduce: congelado a los \SI{150}{\second}, predice
+que un aglomerado de \SI{300}{\second} y otro de \SI{720}{\second} responden
+igual. Para que siguiera reduciéndose haría falta CO, y el único carbono
+disponible es precisamente este char. La constante \texttt{k\_boudouard} es uno
+de los parámetros que la calibración declara \textbf{no identificables} con la
+curva de pérdida de masa; la prueba del imán sí podría identificarla. No se ha
+tocado: queda registrada como discrepancia, no ajustada.
 
 % =====================================================================
 \section{Por qué deja de perder masa}

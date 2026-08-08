@@ -107,11 +107,29 @@ carga:
     cenizas_pct: 9.86
     materia_volatil_pct: 35.30
     carbono_fijo_pct: 53.94
+  # Refinamiento Rietveld del concentrado MAGNETICO (REF-M), que es el que se
+  # mezcla con el carbon. Rwp = 8,38 %, chi2 = 3,31.
+  #
+  #   Magnetita Fe3O4 (Fd-3m)   76,85 +- 1,76 %   a = 8,39312(16) A
+  #   Fase romboedrica R-3      23,15 +- 1,59 %   a = 5,06308, c = 13,90120 A
+  #
+  # La fase R-3 no es ilmenita ni hematita: es una titanohematita intermedia de
+  # la serie, con x(FeTiO3) = 0,49 +- 0,03 por la ley de Vegard. Como el modelo
+  # de reaccion solo conoce Fe2O3 y FeTiO3, se descompone en sus dos miembros
+  # extremos conservando masa. De ahi salen 12,1028 % y 11,0472 %.
+  #
+  # NO HAY hematita libre ni cuarzo. El cuarzo se probo y se rechazo (0,03 %,
+  # R_Bragg 354); el cuarzo y la ilmenita casi pura estan en la fraccion NO
+  # magnetica, que no entra al ensayo.
+  #
+  # Estas cifras NO se escriben a mano: son la salida de
+  # `mineralogia.COMPOSICION_RIETVELD`, con la que `nucleo/caso.py` las compara
+  # a 1e-12. Si el refinamiento cambia, hay que regenerarlas de alli.
   mineralogia_rietveld:
-    magnetita: {formula: Fe3O4, fraccion_masica_pct: 70.7, densidad_g_cm3: 5.17}
-    ilmenita: {formula: FeTiO3, fraccion_masica_pct: 17.3, densidad_g_cm3: 4.72}
-    hematita: {formula: Fe2O3, fraccion_masica_pct: 10.9, densidad_g_cm3: 5.26}
-    cuarzo: {formula: SiO2, fraccion_masica_pct: 1.1, densidad_g_cm3: 2.65}
+    magnetita: {formula: Fe3O4, fraccion_masica_pct: 76.85, densidad_g_cm3: 5.17}
+    ilmenita: {formula: FeTiO3, fraccion_masica_pct: 11.047217655175212, densidad_g_cm3: 4.72}
+    hematita: {formula: Fe2O3, fraccion_masica_pct: 12.102782344824789, densidad_g_cm3: 5.26}
+    cuarzo: {formula: SiO2, fraccion_masica_pct: 0.0, densidad_g_cm3: 2.65}
 
 estado_inicial:
   temperatura_K: 298.15
