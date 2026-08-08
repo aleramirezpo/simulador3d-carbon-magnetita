@@ -689,6 +689,58 @@ def cotas_magnetizacion_Am2_kg(
 # ~2 kW con la puerta cerrada, y se usa sólo como COTA de enfriamiento lento.
 VELOCIDAD_MUFLA_APAGADA_C_MIN = 8.0
 
+# Nombres de las rutas. `RUTA_CON_TAPA` es el procedimiento que se sigue hoy en
+# el laboratorio: se saca el crisol tapado y se deja enfriar al ambiente.
+RUTA_VOLCADO = "Volcado fuera del crisol"
+RUTA_SIN_TAPA = "Al aire, sin tapa"
+RUTA_CON_TAPA = "Al aire, con tapa"
+RUTA_MUFLA = "En la mufla apagada, con tapa"
+RUTA_DEL_ENSAYO = RUTA_CON_TAPA
+
+
+def parametros_de_ruta(
+    nombre: str, moles_FeO: float, T_extraccion_K: float = 1173.15
+) -> dict[str, float]:
+    """Extensiones de cada transformación para una ruta de enfriado dada.
+
+    Devuelve lo que hay que pasarle a :func:`composicion_tras_ruta`. Se expone
+    para que el informe pueda tabular el procedimiento REAL del laboratorio
+    ---con la tapa puesta--- y no sólo las dos cotas abstractas.
+
+    `T_extraccion_K` es la temperatura a la que estaba el cuerpo al sacarlo.
+    Sólo interviene en la oxidación al aire, que se apaga por debajo de
+    :data:`TEMPERATURA_MINIMA_OXIDACION_AIRE_K`.
+    """
+
+    cuerpos = {
+        RUTA_VOLCADO: (AGLOMERADO_SOLO, False),
+        RUTA_SIN_TAPA: (CRISOL_SIN_TAPA, False),
+        RUTA_CON_TAPA: (CRISOL_ENSAYO, True),
+        RUTA_MUFLA: (None, True),
+    }
+    if nombre not in cuerpos:
+        raise ValueError(f"ruta desconocida: {nombre!r}; use {tuple(cuerpos)}")
+    cuerpo, con_tapa = cuerpos[nombre]
+    if cuerpo is None:
+        ventana = 170.0 / VELOCIDAD_MUFLA_APAGADA_C_MIN * 60.0
+    else:
+        ventana = float(
+            veredicto_de_temple(cuerpo=cuerpo)["tiempo_en_ventana_eutectoide_s"]
+        )
+    return {
+        "tiempo_en_ventana_s": ventana,
+        "f_eutectoide": fraccion_eutectoide(ventana),
+        "f_reoxidacion_gas": (
+            reoxidacion_con_la_tapa_puesta(moles_FeO)["fraccion_de_la_wustita"]
+            if con_tapa else 0.0
+        ),
+        "f_oxidacion_aire": (
+            0.0
+            if con_tapa or float(T_extraccion_K) < TEMPERATURA_MINIMA_OXIDACION_AIRE_K
+            else FRACCION_REOXIDADA_AL_AIRE
+        ),
+    }
+
 # CALIBRABLE. Fracción de la magnetita que llega a reoxidarse a hematita en la
 # superficie cuando el aglomerado se enfría destapado, expuesto al aire. No hay
 # medida de esta muestra: es un orden de magnitud para poder comparar rutas, y
@@ -697,21 +749,36 @@ VELOCIDAD_MUFLA_APAGADA_C_MIN = 8.0
 FRACCION_REOXIDADA_AL_AIRE = 0.05
 RANGO_FRACCION_REOXIDADA_AL_AIRE = (0.0, 0.20)
 
+# Por debajo de esta temperatura la oxidación de la magnetita al aire no avanza
+# de forma apreciable en el tiempo de un enfriado. Sin esta compuerta el modelo
+# decía que un aglomerado sacado a los \SI{30}{\second} ---que sigue a 205 °C y
+# no ha reaccionado--- saldría con hematita en la superficie, lo cual es
+# absurdo: si nunca estuvo caliente, no hay nada que oxidar al enfriarse.
+TEMPERATURA_MINIMA_OXIDACION_AIRE_K = 673.15  # 400 °C
 
-def _magnetizacion_de_ruta(
+
+def composicion_tras_ruta(
     solido_mol_m3: Mapping[str, Any],
     volumen_celda_m3: Any,
     *,
     f_eutectoide: float,
     f_reoxidacion_gas: float = 0.0,
     f_oxidacion_aire: float = 0.0,
-) -> dict[str, float]:
-    """Fases y magnetización tras una ruta de enfriado concreta.
+) -> dict[str, Any]:
+    """Composición completa y magnetización tras una ruta de enfriado concreta.
 
-    Se aplican en orden: la reoxidación de la wüstita por el gas encerrado
-    (3 FeO + CO2 -> Fe3O4 + CO), el eutectoide sobre lo que quede de wüstita
-    (4 FeO -> Fe3O4 + Fe) y, si el cuerpo está destapado, la oxidación
-    superficial de la magnetita al aire (4 Fe3O4 + O2 -> 6 Fe2O3).
+    Se aplican en orden y son transformaciones DISTINTAS, no una misma cuenta:
+
+    1. reoxidación de la wüstita por el gas encerrado, que sólo ocurre con la
+       tapa puesta: 3 FeO + CO2 -> Fe3O4 + CO. Produce magnetita y **nada de
+       hierro metálico**;
+    2. eutectoide sobre la wüstita que quede: 4 FeO -> Fe3O4 + Fe. Éste **sí**
+       produce hierro metálico;
+    3. si el cuerpo está destapado, oxidación superficial de la magnetita al
+       aire: 4 Fe3O4 + O2 -> 6 Fe2O3.
+
+    Confundir (1) con (2) daría el mismo balance de wüstita pero un reparto
+    Fe3O4/Fe distinto, y con él una magnetización distinta.
     """
 
     moles = fases_tras_enfriar(solido_mol_m3, volumen_celda_m3, 0.0)
@@ -746,14 +813,23 @@ def _magnetizacion_de_ruta(
         * MASAS_MOLARES_SOLIDO_KG_MOL["FeTiO3"]
     )
     # Las masas molares están en kg/mol: para miligramos hace falta 1e6.
+    masas_mg = {
+        f: 1.0e6 * n * MASAS_MOLARES_SOLIDO_KG_MOL[f] for f, n in moles.items()
+    }
     return {
-        "Fe3O4_mg": 1.0e6 * moles["Fe3O4"] * MASAS_MOLARES_SOLIDO_KG_MOL["Fe3O4"],
-        "FeO_mg": 1.0e6 * moles["FeO"] * MASAS_MOLARES_SOLIDO_KG_MOL["FeO"],
-        "Fe_mg": 1.0e6 * moles["Fe"] * MASAS_MOLARES_SOLIDO_KG_MOL["Fe"],
-        "Fe2O3_mg": 1.0e6 * moles["Fe2O3"] * MASAS_MOLARES_SOLIDO_KG_MOL["Fe2O3"],
+        "moles": moles,
+        "masas_mg": masas_mg,
+        "Fe3O4_mg": masas_mg["Fe3O4"],
+        "FeO_mg": masas_mg["FeO"],
+        "Fe_mg": masas_mg["Fe"],
+        "Fe2O3_mg": masas_mg["Fe2O3"],
         "masa_g": 1000.0 * masa,
         "magnetizacion_Am2_kg": momento / masa if masa > 0.0 else 0.0,
     }
+
+
+# Nombre anterior, privado. Se conserva porque lo usa `evaluacion_rutas_de_enfriado`.
+_magnetizacion_de_ruta = composicion_tras_ruta
 
 
 def evaluacion_rutas_de_enfriado(
@@ -784,11 +860,14 @@ def evaluacion_rutas_de_enfriado(
     # 570 -> 400 °C son 170 K; a velocidad constante, el tiempo en la ventana.
     ventana_mufla = 170.0 / VELOCIDAD_MUFLA_APAGADA_C_MIN * 60.0
 
-    rutas = (
-        ("Volcado fuera del crisol", ventana(AGLOMERADO_SOLO), 0.0, FRACCION_REOXIDADA_AL_AIRE),
-        ("Al aire, sin tapa", ventana(CRISOL_SIN_TAPA), 0.0, FRACCION_REOXIDADA_AL_AIRE),
-        ("Al aire, con tapa", ventana(CRISOL_ENSAYO), tope_gas, 0.0),
-        ("En la mufla apagada, con tapa", ventana_mufla, tope_gas, 0.0),
+    rutas = tuple(
+        (nombre, t_ventana, f_gas, f_aire)
+        for nombre, t_ventana, f_gas, f_aire in (
+            (RUTA_VOLCADO, ventana(AGLOMERADO_SOLO), 0.0, FRACCION_REOXIDADA_AL_AIRE),
+            (RUTA_SIN_TAPA, ventana(CRISOL_SIN_TAPA), 0.0, FRACCION_REOXIDADA_AL_AIRE),
+            (RUTA_CON_TAPA, ventana(CRISOL_ENSAYO), tope_gas, 0.0),
+            (RUTA_MUFLA, ventana_mufla, tope_gas, 0.0),
+        )
     )
 
     salida: list[dict[str, Any]] = []

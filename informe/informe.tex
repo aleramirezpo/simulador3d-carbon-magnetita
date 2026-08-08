@@ -589,38 +589,48 @@ congelados.
 \begin{table}[H]
 \centering\small
 \input{tabla_fen_fases_tiempo}
-\caption{Inventario de fases \textbf{dentro de la mufla}, en \si{\milli\gram},
-para cada instante de extracción. A partir de los \SI{150}{\second} no cambia
-nada más: se agotó el reductor.}
+\caption{Composición \textbf{dentro de la mufla} en cada instante de
+extracción: \% en masa sobre el sólido, con la masa total y la porosidad. Cada
+fila suma 100. A partir de los \SI{150}{\second} no cambia nada más: se agotó el
+reductor. Esto es lo que hay \emph{a \SI{900}{\celsius}}; lo que se saca y se
+deja enfriar está en el cuadro~\ref{tab:enfriado}.}
 \label{tab:fases-tiempo}
 \end{table}
 
 \begin{table}[H]
-\centering\small
-\input{tabla_fen_enfriado}
-\caption{Lo que se \textbf{recupera a temperatura ambiente}, según qué le pase a
-la wüstita al enfriar. «Temple» la conserva entera; «lento» la descompone del
-todo en magnetita y hierro. La lectura real está entre las dos columnas, y más
-cerca de la de temple cuanto más rápido se enfríe. Las fases que no aparecen
----volátil, char, ceniza, ilmenita--- son las mismas del
-cuadro~\ref{tab:fases-tiempo}: no cambian al enfriar.}
+\centering
+% Doce columnas y cinco de ellas con tres valores: no cabe a tamaño normal.
+\resizebox{\textwidth}{!}{\input{tabla_fen_enfriado}}
+\caption{\textbf{Lo que se recupera ya frío}, en \% en masa. Cada fila responde
+a «lo saqué a los $t$ segundos: ¿qué tengo?», y cada celda de las cinco últimas
+columnas da los \textbf{tres estados en el mismo orden}:
+\emph{en la mufla / con tapa / sin tapa}. El primero es el estado a
+\SI{900}{\celsius} sin enfriar, y los otros dos son lo que queda al dejarlo
+llegar a temperatura ambiente por cada camino. Las cuatro fases de la izquierda
+salen iguales en los tres casos: no tienen ninguna transformación accesible
+entre \SI{900}{\celsius} y el ambiente. La masa tampoco cambia al enfriar,
+porque todo lo que ocurre son reorganizaciones en estado sólido.}
 \label{tab:enfriado}
 \end{table}
 
-\paragraph{Dónde cae este ensayo entre las dos columnas.} Con la curva de
-enfriamiento del crisol, el cuerpo pasa \datEnfriaVentana\ \si{\second} dentro
-de la ventana en que el eutectoide puede operar. Aplicando una ley de
-Avrami anclada en las dos únicas fracciones medidas que se han encontrado
-(Zorc, Nagode y Kosec, 2024: \num{0.17} de wüstita retenida enfriando a
-\SI{100}{\celsius\per\minute} y \num{0.41} a \SI{1000}{\celsius\per\minute}),
-sale que se descompondría en torno al \datFraccionEutectoide\,\% de la wüstita:
-más o menos a mitad de camino entre las dos columnas.
+\paragraph{De dónde salen esas dos columnas de enfriado.} Con la curva del
+crisol, el cuerpo pasa \datEnfriaVentana\ \si{\second} dentro de la ventana en
+que el eutectoide puede operar. Aplicando una ley de Avrami anclada en las dos
+únicas fracciones medidas que se han encontrado (Zorc, Nagode y Kosec, 2024:
+\num{0.17} de wüstita retenida enfriando a \SI{100}{\celsius\per\minute} y
+\num{0.41} a \SI{1000}{\celsius\per\minute}), se descompone en torno al
+\datFraccionEutectoide\,\% de la wüstita. Con la tapa puesta se suma la
+reoxidación por el gas encerrado, que convierte otro \datReoxidaGas\,\% en
+magnetita \emph{sin} producir hierro; sin tapa, en cambio, entra aire y aparece
+hematita. Los detalles están en \S\ref{sec:rutas}.
 
-\ojo{Ese número no es un resultado, es una ilustración.} Depende de un supuesto
-sobre cuánta wüstita había en las probetas de esa referencia, y sus muestras son
-capas de óxido sobre acero, no un aglomerado carbón--mineral. El resultado que
-este informe defiende son \textbf{las dos cotas}; el valor intermedio sólo dice
-que el caso real no está pegado a ninguna de ellas.
+\ojo{Esos números no son un resultado, son una estimación.} La cinética del
+eutectoide se ancló en una referencia sobre capas de óxido en acero, no en un
+aglomerado carbón--mineral, y la oxidación al aire es un orden de magnitud
+declarado. Lo que el cuadro sostiene con firmeza es el \textbf{orden} de las
+tres columnas ---con tapa deja más magnetita que sin tapa, y las dos dejan más
+que el estado de la mufla---, porque eso sale de que la wüstita vale 0 y la
+magnetita 92 \si{\ampere\meter\squared\per\kilo\gram}, que es dato de tabla.
 
 \paragraph{Lo que el enfriado hace y este modelo no recoge.} Tres cosas, y las
 tres se declaran porque van en direcciones distintas:

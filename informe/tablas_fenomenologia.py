@@ -237,35 +237,67 @@ def tabla_enfriado(datos):
     fraccion = mag.fraccion_eutectoide(float(enf["tiempo_en_ventana_eutectoide_s"]))
     macro("datFraccionEutectoide", num(100.0 * fraccion, 0))
 
-    MW_FeO, MW_Fe3O4, MW_Fe = 71.844, 231.531, 55.845
     fases = ("volatil", "C", "ceniza", "Fe2O3", "Fe3O4", "FeO", "Fe", "FeTiO3")
+    volumen = float(np.prod(datos["paso_malla_mm"])) * 1.0e-9
+    instantes = {round(float(t), 6): campos for t, campos in datos["instantaneas"]}
+    tiempos_inst = sorted(instantes)
+
     filas = []
     for objetivo in TIEMPOS_EXTRACCION:
         i = _indice_mas_cercano(s, objetivo)
-        # La masa NO cambia al enfriar: el eutectoide es una reorganización en
-        # estado sólido, así que el mismo total sirve para las dos cotas.
-        total = sum(s[f"m_{f}"][i] for f in fases if f"m_{f}" in s)
-        Fe3O4 = 1000.0 * s["m_Fe3O4"][i]
-        FeO = 1000.0 * s["m_FeO"][i]
-        Fe = 1000.0 * s["m_Fe"][i]
-        moles_FeO = FeO / MW_FeO       # 4 FeO -> Fe3O4 + Fe
-        pct = lambda mg: 100.0 * mg / (1000.0 * total) if total > 0 else 0.0
-        filas.append(
-            rf"    {num(s['t'][i], 0)} & {num(1000.0 * total, 1)} & "
-            rf"{num(s['eps_media'][i], 3)} & "
-            rf"{num(pct(Fe3O4), 2)} & {num(pct(Fe3O4 + 0.25 * moles_FeO * MW_Fe3O4), 2)} & "
-            rf"{num(pct(FeO), 2)} & {num(0.0, 2)} & "
-            rf"{num(pct(Fe), 2)} & {num(pct(Fe + 0.25 * moles_FeO * MW_Fe), 2)} & "
-            rf"{num(s['magnetizacion_Am2_kg'][i], 1)} & "
-            rf"{num(s['magnetizacion_lenta_Am2_kg'][i], 1)} \\"
+        t_fila = float(s["t"][i])
+        clave = min(tiempos_inst, key=lambda x: abs(x - t_fila))
+        solido = {f: np.asarray(v) for f, v in instantes[clave]["solido"].items()}
+
+        # La masa NO cambia al enfriar: el eutectoide y la reoxidación por el
+        # gas son reorganizaciones en estado sólido.
+        total_mg = 1000.0 * sum(s[f"m_{f}"][i] for f in fases if f"m_{f}" in s)
+        pct = lambda mg: 100.0 * mg / total_mg if total_mg > 0 else 0.0
+
+        n_FeO = mag.fases_tras_enfriar(solido, volumen, 0.0)["FeO"]
+        # «mufla» es el estado sin enfriar: ninguna transformación aplicada.
+        estados = {"mufla": mag.composicion_tras_ruta(solido, volumen, f_eutectoide=0.0)}
+        for etiqueta, ruta in (("tapa", mag.RUTA_CON_TAPA), ("sin", mag.RUTA_SIN_TAPA)):
+            p = mag.parametros_de_ruta(ruta, n_FeO, float(s["T_lecho"][i]))
+            estados[etiqueta] = mag.composicion_tras_ruta(
+                solido, volumen,
+                f_eutectoide=p["f_eutectoide"],
+                f_reoxidacion_gas=p["f_reoxidacion_gas"],
+                f_oxidacion_aire=p["f_oxidacion_aire"],
+            )
+
+        fijas = " & ".join(
+            num(pct(1000.0 * s[f"m_{f}"][i]), 2)
+            for f in ("volatil", "C", "ceniza", "FeTiO3")
         )
+
+        def tercia(nombre: str, cifras: int = 2) -> str:
+            """«mufla / con tapa / sin tapa» en la misma celda."""
+            return " / ".join(
+                num(pct(estados[e][f"{nombre}_mg"]), cifras)
+                for e in ("mufla", "tapa", "sin")
+            )
+
+        ms = " / ".join(
+            num(estados[e]["magnetizacion_Am2_kg"], 1)
+            for e in ("mufla", "tapa", "sin")
+        )
+
+        filas.append(
+            rf"    {num(t_fila, 0)} & {num(total_mg, 1)} & "
+            rf"{num(s['eps_media'][i], 3)} & {fijas} & "
+            rf"{tercia('Fe3O4')} & {tercia('FeO')} & {tercia('Fe')} & "
+            rf"{tercia('Fe2O3')} & {ms} \\"
+        )
+
     escribir("tabla_fen_enfriado.tex", (
-        r"\begin{tabular}{rrrrrrrrrrr}" "\n"
+        r"\begin{tabular}{rrrrrrrrrrrr}" "\n"
         r"    \hline" "\n"
-        r"     &  &  & \multicolumn{2}{c}{Fe$_3$O$_4$ [\%]} & \multicolumn{2}{c}{FeO [\%]}"
-        r" & \multicolumn{2}{c}{Fe [\%]} & \multicolumn{2}{c}{$M_s$ [A m$^2$/kg]} \\" "\n"
-        r"    $t$ [s] & masa [mg] & $\varepsilon$ & temp. & lento & temp. & lento"
-        r" & temp. & lento & temp. & lento \\" "\n"
+        r"     &  &  & \multicolumn{4}{c}{iguales en los tres casos [\%]}"
+        r" & \multicolumn{5}{c}{\textbf{en la mufla / con tapa / sin tapa}} \\" "\n"
+        r"    $t$ [s] & masa [mg] & $\varepsilon$ & volátil & char & ceniza & FeTiO$_3$"
+        r" & Fe$_3$O$_4$ [\%] & FeO [\%] & Fe [\%] & Fe$_2$O$_3$ [\%]"
+        r" & $M_s$ [A m$^2$/kg] \\" "\n"
         r"    \hline" "\n"
         + "\n".join(filas) + "\n"
         r"    \hline" "\n"
