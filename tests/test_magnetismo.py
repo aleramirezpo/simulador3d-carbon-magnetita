@@ -429,3 +429,57 @@ def test_el_magnetismo_sigue_bajando_despues_de_los_150_segundos() -> None:
         f"magnetizacion pasa de {inicial:.2f} a {final:.2f} A m2/kg: el modelo "
         "la deja congelada y el ensayo la ve seguir bajando"
     )
+
+
+def test_sobra_reductor_de_largo_para_reducir_toda_la_magnetita() -> None:
+    """Fija la afirmacion central de «Por que la magnetita no se convierte entera».
+
+    El informe sostiene que la conversion NO se detiene por falta de reductor
+    sino por la frontera de fases. Eso es falsable con una cuenta: si el CO+H2
+    generado por la pirolisis fuese menor que el oxigeno que habria que quitar,
+    la explicacion correcta seria el agotamiento y toda la seccion sobraria.
+
+    Se comprueban las dos mitades del argumento a la vez: que sobra reductor, y
+    que aun asi la magnetita no se convierte entera. Si algun dia dejaran de ser
+    ciertas las dos juntas, el texto del informe habria que reescribirlo.
+    """
+
+    from interfaz.app import directorio_predeterminado
+    from modelo_multifase import _VOLATILES_MOL_POR_G
+
+    raiz = Path(__file__).resolve().parents[1]
+    directorio = directorio_predeterminado(raiz / "resultados")
+    indice = serie_vigente(directorio) if Path(directorio).is_dir() else []
+    if len(indice) < 5:
+        pytest.skip(f"no hay corrida utilizable en {directorio}")
+
+    def inventario(ruta):
+        campos = cargar_instantanea(ruta)
+        x, y, z = (np.asarray(campos[k], dtype=float) for k in ("x", "y", "z"))
+        volumen = float(np.diff(x).mean() * np.diff(y).mean() * np.diff(z).mean())
+        return {
+            fase: float(np.sum(np.asarray(valores))) * volumen
+            for fase, valores in campos["solido"].items()
+        }
+
+    inventarios = [inventario(e["ruta"]) for e in indice]
+    n_pico = max(inv["Fe3O4"] for inv in inventarios)
+    n_final = inventarios[-1]["Fe3O4"]
+    # El volatil se lleva en pseudomoles que valen 1 g cada uno.
+    liberado_g = inventarios[0]["volatil"] - inventarios[-1]["volatil"]
+    reductor_mol = liberado_g * (
+        _VOLATILES_MOL_POR_G["CO"] + _VOLATILES_MOL_POR_G["H2"]
+    )
+
+    # Fe3O4 + CO -> 3 FeO + CO2 quita un oxigeno por cada magnetita.
+    assert reductor_mol > 2.0 * n_pico, (
+        f"el reductor generado ({1e3 * reductor_mol:.3f} mmol de CO+H2) no "
+        f"supera con holgura al necesario ({1e3 * n_pico:.3f} mmol): si fuera "
+        "asi, la conversion se detendria por agotamiento y no por la frontera "
+        "de fases, y la explicacion del informe seria la equivocada"
+    )
+    assert n_final > 0.5 * n_pico, (
+        f"queda {100 * n_final / n_pico:.0f} % de la magnetita del maximo: con "
+        "reductor de sobra, que se convirtiera casi toda querria decir que la "
+        "frontera Fe3O4/FeO ha dejado de frenar la reaccion"
+    )

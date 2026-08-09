@@ -1418,3 +1418,119 @@ no valores nominales:
 El informe también dice ahora, con números, qué aporta el 3-D que un 0-D no
 puede: los gradientes dentro del lecho, el crecimiento del aglomerado en vez de
 su aparición de golpe, la geometría real del crisol y el campo de composición.
+
+---
+
+## 20. POR QUÉ LA MAGNETITA NO SE CONVIERTE ENTERA — EL BALANCE DEL REDUCTOR
+
+La pregunta que lo abrió, textual del usuario:
+
+> «osea que esa tabla me esta diciendo, que aunque se deje en la mufla a 900
+> grado, toda esa magnetita no pasa a wuista? porque veo que en los % siempre
+> hay»
+
+Sí, y ahora está medido y escrito. Lo que se añadió:
+
+### 20.1 El reparto del hierro por instante (`tabla_fen_hierro.tex`)
+
+En **átomos de Fe**, no en masa: las fases pesan distinto y el reparto en masa
+engaña.
+
+| t (s) | en Fe₂O₃ | en Fe₃O₄ | en FeO | metálico | en FeTiO₃ |
+|---|---|---|---|---|---|
+| 0 | 12,4 | 81,6 | 0 | 0 | 6,0 |
+| 60 | 0,5 | **93,5** | 0 | 0 | 6,0 |
+| 90 | 0 | 89,4 | 4,6 | 0,1 | 6,0 |
+| 120 | 0 | 81,9 | 10,3 | 1,8 | 6,0 |
+| 150–720 | 0 | **75,9** | 14,9 | 3,2 | 6,0 |
+
+Lo primero que ocurre no es la reducción de la magnetita sino **la que la
+produce**: la hematita desaparece y la magnetita *crece* hasta el 93,5 %. Luego
+cede el **19 %** de su máximo y a los 150 s el inventario se congela.
+
+### 20.2 El balance del poder reductor (`tabla_fen_balance_reductor.tex`)
+
+Es el resultado nuevo y es contraintuitivo:
+
+| | valor |
+|---|---|
+| Magnetita en el máximo (t = 65 s) | 0,956 mmol |
+| O que habría que quitar para pasarla toda a wüstita | 0,956 mmol |
+| O que de hecho se quitó | 0,282 mmol (**30 %**) |
+| Volátil liberado | 233 mg |
+| **CO + H₂ generados** | **7,93 mmol** |
+| frente a lo necesario | **×8,3** |
+| **fracción que llegó a reducir un óxido** | **3,6 %** |
+
+**Hay 8,3 veces más reductor del necesario y sólo se aprovecha el 3,6 %.** El
+resto sale por el venteo sin reaccionar (tiempo de residencia < 1 s). Luego la
+conversión **no** se detiene por agotamiento: se detiene porque la propia
+reducción empuja el gas hasta la frontera Fe₃O₄/FeO (32,22 % de CO) y allí la
+afinidad `1 − Q/K_eq` se anula. La corrida acaba en 27,8 %, justo debajo.
+
+La analogía que se usa en el informe: el agua con hielo se queda en 0 °C no
+porque se acabe el calor, sino porque mientras coexisten dos fases la
+temperatura no puede moverse.
+
+### 20.3 El corolario que va en contra de la intuición
+
+Como el límite es el **contacto** y no la cantidad, **sellar mejor el crisol
+convertiría más magnetita, o sea dejaría el producto MENOS magnético.** No
+contradice §19 (allí la tapa ayuda porque actúa *al enfriar*, sobre la wüstita
+ya formada). Son dos etapas distintas y el óptimo para los ensayos de adsorción
+es **venteado en caliente y tapado al enfriar** — que es el procedimiento que ya
+se sigue.
+
+### 20.4 El reloj térmico, en números (`fig_fen_calentamiento.pdf`)
+
+Pedido explícito: una gráfica de la temperatura del aglomerado «hasta que ya se
+transmite todo el calor y llega a los 900».
+
+| hito | t |
+|---|---|
+| 50 % del salto térmico | 90 s |
+| 90 % | 225 s |
+| 99 % | 405 s |
+| a menos de 100 K de la mufla | 215 s |
+| a menos de 10 K | 405 s |
+| a menos de 1 K | 595 s |
+| T final del lecho | 898,9 °C |
+
+Dos lecturas que importan: **el hito de los 90 s cae exactamente sobre el cruce
+de la ventana termoplástica** (el lecho pasa por 473 °C), o sea que el
+hinchamiento observado es predicción del reloj térmico sin ninguna constante
+química; y **la ventana con reductor y temperatura a la vez es estrecha** — la
+devolatilización se agota a los 150 s y el lecho no llega al 99 % del salto
+hasta los 405 s.
+
+### 20.5 La figura de los tres estados (`fig_fen_tres_estados.pdf`)
+
+Fe₃O₄, FeO, Fe y Fe₂O₃, cada una con tres curvas: **en la mufla / recuperada con
+tapa / recuperada sin tapa**. Las tres nacen juntas y sólo se separan a partir
+de los 90 s, cuando aparece la primera wüstita: todo lo que distingue a las
+rutas de enfriado (eutectoide, reoxidación por el gas encerrado, oxidación al
+aire) actúa sobre la wüstita o sobre lo que ella produce.
+
+### 20.6 Prueba que fija el argumento
+
+`test_sobra_reductor_de_largo_para_reducir_toda_la_magnetita` comprueba las dos
+mitades a la vez: que el reductor generado supera al necesario, y que aun así
+queda más de la mitad de la magnetita. Si dejaran de ser ciertas juntas, la
+sección del informe habría que reescribirla.
+
+### 20.7 Archivos
+
+- `informe/seccion_reduccion_incompleta.tex` y `informe/seccion_calentamiento.tex`
+  (nuevos, incluidos por los **dos** documentos).
+- `informe/tablas_fenomenologia.py`: `tabla_reparto_hierro`,
+  `tabla_balance_reductor`, `datos_calentamiento`.
+- `informe/figuras_fenomenologia.py`: `figura_fases_tres_estados`,
+  `figura_calentamiento`.
+- Macros nuevas: `datMagnetitaPico`, `datVolatilLiberado`, `datReductorGenerado`,
+  `datReductorExceso`, `datReductorAprovechado`, `datOxigenoQuitado`,
+  `datMagnetitaConvertida`, `datCOLechoFinal`, `datCalor{Mitad,Noventa,NoventaNueve}`,
+  `datFalta{Cien,Diez,Uno}`, `datTLechoFinal`, `datTLechoNoventa`.
+
+**Convención de las macros de umbral:** `datUmbral*` y `datCOLechoFinal` están
+en **porcentaje**, no en fracción. Mezclarlas costó una lectura errónea
+(«x_CO = 32,22») que se detectó rasterizando el PDF.

@@ -445,13 +445,163 @@ def figura_magnetismo(s, enfriamiento):
     _guardar(fig, "fig_fen_magnetismo.pdf")
 
 
+def figura_fases_tres_estados(datos):
+    """La misma fase en los tres estados en que puede encontrarse el sólido.
+
+    El cuadro de enfriado da esto mismo en nueve instantes; la figura lo da en
+    los 145 y deja ver una cosa que la tabla esconde: las tres curvas nacen
+    juntas y sólo se separan cuando aparece wüstita, porque **todo** lo que
+    distingue a las tres rutas actúa sobre la wüstita. Sin wüstita, enfriar como
+    se quiera da el mismo sólido.
+    """
+    from fisica import magnetismo as mag
+
+    s = datos["serie"]
+    volumen = float(np.prod(datos["paso_malla_mm"])) * 1.0e-9
+    fases = ("volatil", "C", "ceniza", "Fe2O3", "Fe3O4", "FeO", "Fe", "FeTiO3")
+
+    t, estados = [], {"mufla": [], "tapa": [], "sin": []}
+    # La ventana del eutectoide sólo depende del cuerpo que se enfría, no de la
+    # instantánea: se calcula una vez y no 145 veces.
+    for instante, campos in datos["instantaneas"]:
+        i = _indice_mas_cercano_t(s, float(instante))
+        solido = {f: np.asarray(v) for f, v in campos["solido"].items()}
+        total_mg = 1000.0 * sum(s[f"m_{f}"][i] for f in fases if f"m_{f}" in s)
+        n_FeO = mag.fases_tras_enfriar(solido, volumen, 0.0)["FeO"]
+        t.append(float(instante))
+        estados["mufla"].append(
+            (mag.composicion_tras_ruta(solido, volumen, f_eutectoide=0.0), total_mg))
+        for etiqueta, ruta in (("tapa", mag.RUTA_CON_TAPA), ("sin", mag.RUTA_SIN_TAPA)):
+            p = mag.parametros_de_ruta(ruta, n_FeO, float(s["T_lecho"][i]))
+            estados[etiqueta].append((mag.composicion_tras_ruta(
+                solido, volumen,
+                f_eutectoide=p["f_eutectoide"],
+                f_reoxidacion_gas=p["f_reoxidacion_gas"],
+                f_oxidacion_aire=p["f_oxidacion_aire"]), total_mg))
+
+    t = np.asarray(t)
+    estilo = (
+        ("mufla", "en la mufla (900 °C)", GRIS, ":"),
+        ("tapa", "recuperado con tapa", AZUL, "-"),
+        ("sin", "recuperado sin tapa", ROJO, "--"),
+    )
+    paneles = (
+        ("Fe3O4", "magnetita Fe$_3$O$_4$"),
+        ("FeO", "wüstita FeO"),
+        ("Fe", "hierro metálico Fe"),
+        ("Fe2O3", "hematita Fe$_2$O$_3$"),
+    )
+    fig, ejes = plt.subplots(1, 4, figsize=(10.4, 2.9))
+    for eje, (fase, titulo) in zip(ejes, paneles):
+        for clave, etiqueta, color, ls in estilo:
+            y = np.asarray([100.0 * c[f"{fase}_mg"] / m if m > 0 else np.nan
+                            for c, m in estados[clave]])
+            eje.plot(t, y, color=color, ls=ls, lw=1.6, label=etiqueta)
+        eje.set_xlabel("tiempo en la mufla [s]")
+        eje.set_xlim(0, t[-1])
+        eje.set_ylim(bottom=0)
+        eje.set_title(titulo, fontsize=9)
+        _marcar_hitos(eje, con_texto=False)
+    ejes[0].set_ylabel("% en masa del sólido")
+    ejes[0].legend(loc="lower left", fontsize=6.5)
+    fig.suptitle(
+        "Las tres curvas se separan sólo donde hay wüstita que transformar",
+        fontsize=10, y=1.02)
+    _guardar(fig, "fig_fen_tres_estados.pdf")
+
+
+def _indice_mas_cercano_t(s, objetivo):
+    return int(np.argmin(np.abs(np.asarray(s["t"], dtype=float) - float(objetivo))))
+
+
+def figura_calentamiento(s):
+    """Cuánto tarda la carga en enterarse de que la mufla está a 900 °C.
+
+    La figura térmica general enseña la cadena mufla → crisol → lecho; ésta
+    responde a una pregunta distinta y concreta: **cuándo llega el lecho a los
+    900 °C**. Se marca la fracción recorrida del salto térmico, que es lo que
+    permite decir «a los 30 s no ha pasado nada» sin apelar a la química.
+    """
+    t = np.asarray(s["t"])
+    T = np.asarray(s["T_lecho"]) - 273.15
+    T_mufla = np.asarray(s["T_mufla"]) - 273.15
+    T0, T_obj = float(T[0]), float(T_mufla[-1])
+    salto = T_obj - T0
+
+    def cuando(fraccion):
+        """Instante a partir del cual el lecho ya NO baja de ese umbral.
+
+        No vale el primer cruce: al arrancar, mufla y lecho están los dos a
+        \\SI{25}{\\celsius} y cualquier criterio de cercanía se cumple de forma
+        trivial. Lo que interesa es el último cruce.
+        """
+        objetivo = T0 + fraccion * salto
+        pendientes = np.nonzero(T < objetivo)[0]
+        if not pendientes.size:
+            return float(t[0]), objetivo
+        i = int(pendientes[-1]) + 1
+        return (float(t[i]), objetivo) if i < t.size else (np.nan, objetivo)
+
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(7.8, 3.2),
+                                 gridspec_kw={"wspace": 0.30})
+
+    a1.plot(t, T_mufla, color=ROJO, lw=1.3, ls="--", label="mufla")
+    a1.fill_between(t, np.asarray(s["T_lecho_min"]) - 273.15,
+                    np.asarray(s["T_lecho_max"]) - 273.15,
+                    color=AZUL, alpha=0.16, lw=0, label="lecho (mín–máx)")
+    a1.plot(t, T, color=AZUL, lw=1.9, label="lecho (media)", zorder=3)
+    # Los tres puntos caen sobre la curva a alturas muy distintas: las etiquetas
+    # van al margen derecho, escalonadas, cada una con su guía.
+    for fraccion, texto, altura in ((0.5, "50 %", 0.28),
+                                    (0.9, "90 %", 0.50),
+                                    (0.99, "99 %", 0.72)):
+        t_h, T_h = cuando(fraccion)
+        if not np.isfinite(t_h):
+            continue
+        a1.plot([t_h], [T_h], "o", ms=4.5, color=MORADO, zorder=5)
+        a1.annotate(f"{texto} del salto\na los {t_h:.0f} s", xy=(t_h, T_h),
+                    xytext=(0.985, altura), textcoords="axes fraction",
+                    fontsize=6.5, color=MORADO, ha="right", va="center",
+                    arrowprops=dict(arrowstyle="-", color=MORADO, lw=0.6,
+                                    shrinkA=0, shrinkB=3))
+    a1.set_xlabel("tiempo [s]")
+    a1.set_ylabel("temperatura [°C]")
+    a1.set_xlim(0, t[-1])
+    a1.legend(loc="lower right")
+    _marcar_hitos(a1, con_texto=False)
+    a1.set_title(f"El lecho acaba en {T[-1]:.0f} °C", fontsize=9)
+
+    # Lo que falta para la mufla, en escala logarítmica: una recta querría decir
+    # una sola constante de tiempo, y no lo es --- la reacción y el volátil que
+    # sale se llevan calor mientras duran.
+    falta = np.maximum(T_mufla - T, 1e-2)
+    a2.semilogy(t, falta, color=AZUL, lw=1.8)
+    for grados in (100.0, 10.0, 1.0):
+        pendientes = np.nonzero(falta > grados)[0]
+        if not pendientes.size or int(pendientes[-1]) + 1 >= t.size:
+            continue
+        a2.axhline(grados, color=GRIS, lw=0.6, ls=":")
+        a2.annotate(f"{grados:g} K a los {t[int(pendientes[-1]) + 1]:.0f} s",
+                    xy=(0.98 * t[-1], grados * 1.25), fontsize=6.5,
+                    color=GRIS, ha="right")
+    a2.set_xlabel("tiempo [s]")
+    a2.set_ylabel("mufla − lecho [K]")
+    a2.set_xlim(0, t[-1])
+    _marcar_hitos(a2, con_texto=False)
+    a2.set_title("Lo que falta para los 900 °C", fontsize=9)
+    fig.suptitle("Transmisión del calor a la carga", fontsize=10)
+    _guardar(fig, "fig_fen_calentamiento.pdf")
+
+
 def main() -> int:
     directorio = sys.argv[1] if len(sys.argv) > 1 else None
     datos = diagnosticos(directorio)
     s = datos["serie"]
     print("figuras de fenomenología:")
     figura_termica(s)
+    figura_calentamiento(s)
     figura_fases(s, datos["fases"])
+    figura_fases_tres_estados(datos)
     figura_cascada_hierro(s)
     figura_perdida(s)
     figura_gases(s, datos["especies"])

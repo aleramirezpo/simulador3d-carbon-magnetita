@@ -305,6 +305,145 @@ def tabla_enfriado(datos):
     ))
 
 
+def tabla_reparto_hierro(datos):
+    """Dónde está el hierro en cada instante, en % de átomos de Fe.
+
+    Es la forma correcta de mirar la pregunta «¿toda la magnetita pasa a
+    wüstita?»: en masa las fases pesan distinto y el reparto engaña.
+    """
+    s = datos["serie"]
+    MW = {"Fe2O3": 159.687, "Fe3O4": 231.531, "FeO": 71.844, "Fe": 55.845,
+          "FeTiO3": 151.709}
+    ATOMOS = {"Fe2O3": 2.0, "Fe3O4": 3.0, "FeO": 1.0, "Fe": 1.0, "FeTiO3": 1.0}
+    orden = ("Fe2O3", "Fe3O4", "FeO", "Fe", "FeTiO3")
+
+    filas = []
+    for objetivo in TIEMPOS_EXTRACCION:
+        i = _indice_mas_cercano(s, objetivo)
+        moles = {f: 1000.0 * s[f"m_{f}"][i] / MW[f] * ATOMOS[f] for f in orden}
+        total = sum(moles.values())
+        celdas = " & ".join(
+            num(100.0 * moles[f] / total, 1) if total > 0 else "---" for f in orden
+        )
+        filas.append(rf"    {num(s['t'][i], 0)} & {celdas} \\")
+
+    escribir("tabla_fen_hierro.tex", (
+        r"\begin{tabular}{rrrrrr}" "\n"
+        r"    \hline" "\n"
+        r"     & \multicolumn{5}{c}{\% de los átomos de Fe} \\" "\n"
+        r"    $t$ [s] & en Fe$_2$O$_3$ & en Fe$_3$O$_4$ & en FeO & metálico"
+        r" & en FeTiO$_3$ \\" "\n"
+        r"    \hline" "\n"
+        + "\n".join(filas) + "\n"
+        r"    \hline" "\n"
+        r"\end{tabular}"
+    ))
+
+
+def tabla_balance_reductor(datos):
+    """El balance que decide por qué la magnetita no se convierte entera.
+
+    Contrasta tres cosas que se confunden con facilidad: el oxígeno que habría
+    que quitar, el que se quitó, y el poder reductor que el carbón llegó a
+    generar. El resultado es contraintuitivo y es el núcleo del análisis.
+    """
+    s = datos["serie"]
+    MW_Fe3O4, MW_Fe, MW_FeO = 231.531, 55.845, 71.844
+
+    mag = np.asarray([1000.0 * m / MW_Fe3O4 for m in s["m_Fe3O4"]])   # mmol
+    i_pico = int(np.argmax(mag))
+    n_pico, n_fin = float(mag[i_pico]), float(mag[-1])
+    n_Fe = 1000.0 * s["m_Fe"][-1] / MW_Fe
+    n_FeO = 1000.0 * s["m_FeO"][-1] / MW_FeO
+
+    # Fe3O4 + CO -> 3 FeO + CO2 quita 1 O por magnetita; metalizar quita 1 más.
+    o_necesario = n_pico
+    o_quitado = (n_pico - n_fin) + n_Fe
+
+    # Poder reductor generado: CO + H2 del volátil liberado.
+    liberado_g = float(s["m_volatil"][0] - s["m_volatil"][-1])
+    try:
+        from modelo_multifase import _VOLATILES_MOL_POR_G as reparto
+        por_g = float(reparto.get("CO", 0.0) + reparto.get("H2", 0.0))
+    except Exception:  # pragma: no cover
+        por_g = 0.0
+    n_reductor = 1000.0 * liberado_g * por_g   # mmol
+
+    macro("datMagnetitaPico", num(n_pico, 3))
+    macro("datVolatilLiberado", num(1000.0 * liberado_g, 0))
+    macro("datReductorGenerado", num(n_reductor, 2))
+    co = np.asarray(s["CO_sobre_COx"], dtype=float)
+    # En porcentaje, igual que datUmbral*: mezclar fracción y porcentaje en el
+    # mismo párrafo es la vía más corta a una comparación mal leída.
+    macro("datCOLechoFinal", num(100.0 * float(co[-1]), 1))
+    macro("datMagnetitaConvertida", num(100.0 * (n_pico - n_fin) / n_pico, 0))
+    macro("datOxigenoQuitado", num(100.0 * o_quitado / o_necesario, 0))
+    macro("datReductorExceso", num(n_reductor / o_necesario, 1))
+    macro("datReductorAprovechado", num(100.0 * o_quitado / n_reductor, 1)
+          if n_reductor > 0 else "---")
+
+    filas = [
+        (r"Magnetita en su máximo (t $=$ " + num(s["t"][i_pico], 0) + r"\,s)",
+         num(n_pico, 3), r"\si{\milli\mol}"),
+        (r"Magnetita al final", num(n_fin, 3), r"\si{\milli\mol}"),
+        (r"\quad convertida", num(n_pico - n_fin, 3)
+         + r"\ (" + num(100.0 * (n_pico - n_fin) / n_pico, 0) + r"\,\%)", r"\si{\milli\mol}"),
+        (r"Wüstita al final", num(n_FeO, 3), r"\si{\milli\mol}"),
+        (r"Hierro metálico al final", num(n_Fe, 3), r"\si{\milli\mol}"),
+        (r"\textbf{O para pasar toda la magnetita a wüstita}", num(o_necesario, 3),
+         r"\si{\milli\mol}"),
+        (r"\textbf{O que de hecho se quitó}",
+         num(o_quitado, 3) + r"\ (" + num(100.0 * o_quitado / o_necesario, 0) + r"\,\%)",
+         r"\si{\milli\mol}"),
+        (r"Volátil liberado", num(1000.0 * liberado_g, 1), r"\si{\milli\gram}"),
+        (r"\textbf{CO + H$_2$ generados}", num(n_reductor, 2), r"\si{\milli\mol}"),
+        (r"\quad frente a lo necesario", r"$\times$" + num(n_reductor / o_necesario, 1), "---"),
+        (r"\quad \ojo{fracción que llegó a reducir}",
+         num(100.0 * o_quitado / n_reductor, 1) + r"\,\%" if n_reductor > 0 else "---", "---"),
+    ]
+    cuerpo = "\n".join(rf"    {a} & {b} & {c} \\" for a, b, c in filas)
+    escribir("tabla_fen_balance_reductor.tex", (
+        r"\begin{tabular}{lrl}" "\n"
+        r"    \hline" "\n"
+        r"    Magnitud & Valor & Unidad \\" "\n"
+        r"    \hline" "\n"
+        + cuerpo + "\n"
+        r"    \hline" "\n"
+        r"\end{tabular}"
+    ))
+
+
+def datos_calentamiento(datos):
+    """Hitos de la transmisión de calor a la carga, para la prosa y la figura.
+
+    El criterio es el ÚLTIMO cruce, no el primero: al arrancar, mufla y lecho
+    están los dos a temperatura ambiente y cualquier criterio de cercanía se
+    cumple de forma trivial.
+    """
+    s = datos["serie"]
+    t = np.asarray(s["t"], dtype=float)
+    T = np.asarray(s["T_lecho"], dtype=float) - 273.15
+    T_mufla = np.asarray(s["T_mufla"], dtype=float) - 273.15
+    salto = float(T_mufla[-1] - T[0])
+
+    def ultimo_cruce(mascara_pendiente):
+        indices = np.nonzero(mascara_pendiente)[0]
+        if not indices.size:
+            return float(t[0])
+        i = int(indices[-1]) + 1
+        return float(t[i]) if i < t.size else float("nan")
+
+    for etiqueta, fraccion in (("Mitad", 0.5), ("Noventa", 0.9),
+                               ("NoventaNueve", 0.99)):
+        objetivo = T[0] + fraccion * salto
+        macro(f"datCalor{etiqueta}", num(ultimo_cruce(T < objetivo), 0))
+    falta = T_mufla - T
+    for etiqueta, grados in (("Cien", 100.0), ("Diez", 10.0), ("Uno", 1.0)):
+        macro(f"datFalta{etiqueta}", num(ultimo_cruce(falta > grados), 0))
+    macro("datTLechoFinal", num(float(T[-1]), 0))
+    macro("datTLechoNoventa", num(float(T[_indice_mas_cercano(s, 90.0)]), 0))
+
+
 def tabla_rutas_de_enfriado(datos):
     """Compara las rutas de enfriado por lo magnético que dejan el aglomerado.
 
@@ -556,6 +695,9 @@ def main() -> int:
     tabla_parametros(datos)
     tabla_fases(datos)
     tabla_fases_por_tiempo(datos)
+    tabla_reparto_hierro(datos)
+    tabla_balance_reductor(datos)
+    datos_calentamiento(datos)
     tabla_enfriado(datos)
     tabla_rutas_de_enfriado(datos)
     tabla_fronteras(datos)
